@@ -36,9 +36,13 @@
                 <version>3.0.0</version>
                 <executions>
                     <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
                         <configuration>
                             <transformers>
-                                <transformer>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.company.platform.team.proj.SimpleApp</mainClass>
                                 </transformer>
                             </transformers>
