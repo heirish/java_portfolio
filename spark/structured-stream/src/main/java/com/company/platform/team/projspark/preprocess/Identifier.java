@@ -2,6 +2,7 @@ package com.company.platform.team.projspark.preprocess;
 
 import org.apache.http.conn.util.InetAddressUtils;
 import org.apache.log4j.Logger;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,11 +26,9 @@ public class Identifier {
     private static Pattern IPV6_PATTERN = Pattern.compile(IPV6_ADDR,
             Pattern.CASE_INSENSITIVE|Pattern.MULTILINE|Pattern.DOTALL|Pattern.UNICODE_CASE);
 
-    // private static Pattern NUMBER_PATTERN = Pattern.compile("[/:\\-,\\s_+@=]+\\d+[\\s,.]",
-    private static Pattern NUMBER_PATTERN = Pattern.compile("\\d+",
-            Pattern.CASE_INSENSITIVE|Pattern.MULTILINE|Pattern.DOTALL|Pattern.UNICODE_CASE);
+    private static DateFinderRegex dateFinderRegex = new DateFinderRegex();
 
-    public static String identifyIP(String text, String typeName){
+    public static final String identifyIP(String text, String typeName){
        return identifyIPV6(identifyIPV4(text, typeName), typeName);
     }
 
@@ -56,20 +55,38 @@ public class Identifier {
     public static String identifyIPV6(String text, String typeName) {
         Matcher matcher = IPV6_PATTERN.matcher(text);
         int lastIndex = 0;
-        String retText = "";
+        StringBuilder stringBuilder = new StringBuilder();
         while (matcher.find()) {
             String matchedIP = matcher.group();
             if (InetAddressUtils.isIPv6Address(matchedIP)) {
-                retText += text.substring(lastIndex, matcher.start()).concat(typeName);
+                stringBuilder.append(text.substring(lastIndex, matcher.start()));
+                stringBuilder.append(typeName);
                 lastIndex = matcher.end();
             }
             logger.debug(String.format("matched IP: %s", matchedIP));
         }
 
         if (lastIndex  > 0) {
-            retText += text.substring(lastIndex);
+            stringBuilder.append(text.substring(lastIndex));
         }
 
-        return (retText.length() > 0 ? retText : text);
+        return (stringBuilder.length() > 0 ? stringBuilder.toString(): text);
+    }
+
+    public static String identifyDatetime(String text, String typeName) {
+//        StringBuilder stringBuilder = new StringBuilder();
+//        List<MatchedSlice> slices = DateFinder.findDates(text);
+//        int lastIndex = 0;
+//        for (MatchedSlice slice : slices) {
+//            stringBuilder.append(text.substring(lastIndex, slice.startIndex));
+//            stringBuilder.append(typeName);
+//            lastIndex = slice.endIndex;
+//        }
+//
+//        if (lastIndex > 0) {
+//            stringBuilder.append(text.substring(lastIndex));
+//        }
+//        return (stringBuilder.length() > 0 ? stringBuilder.toString(): text);
+        return text;
     }
 }

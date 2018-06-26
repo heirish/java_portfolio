@@ -18,6 +18,7 @@ import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by admin on 2018/6/13.
@@ -79,11 +80,16 @@ public class StructuredStream{
                     Map<String, String> fields = gson.fromJson(s, Map.class);
                     if (fields.containsKey(Constants.FIELD_BODY)
                             && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
+                        long start = System.nanoTime();
                         String body = fields.get(Constants.FIELD_BODY);
                         String projectName = fields.get(Constants.FIELD_PROJECTNAME);
                         String leafId = FastClustering.findCluster(projectName, body, 0, 0.3);
+                        long end = System.nanoTime();
                         fields.put("leafId", leafId);
-                        logger.info(String.format("Found cluster %s for log %s", leafId, body));
+                        fields.put("processTimeCost",
+                                String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
+                        //logger.info(String.format("Found cluster %s for log %s", leafId, body));
+                        //logger.info(FastClustering.getPatternTreeString());
                         return gson.toJson(fields);
                     } else {
                         return s;
@@ -96,6 +102,7 @@ public class StructuredStream{
                     .format("json")
                     .option("checkpointLocation", "./checkpoint")
                     .option("path", "./output")
+                    .outputMode("append")
                     .start();
 
             query.awaitTermination();

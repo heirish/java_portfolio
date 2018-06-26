@@ -33,4 +33,9 @@ public class PatternNode {
     public String getNodeId() {
         return nodeId;
     }
+
+    public String toString() {
+        return String.format("nodeId: %s, parentNodeId: %s, representTokens: %s",
+                nodeId, parentNodeId, representTokens.toString());
+    }
 }

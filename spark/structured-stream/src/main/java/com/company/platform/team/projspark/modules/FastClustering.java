@@ -8,6 +8,8 @@ import com.company.platform.team.projspark.preprocess.Tokenizer;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +18,10 @@ import java.util.Map;
  * Created by admin on 2018/6/21.
  */
 public class FastClustering {
+    private static final Logger logger = Logger.getLogger("");
     private static Map<String, PatternTree> patternTrees = new HashMap<>();
 
-    private static Boolean belongsToCluster(List<String> logTokens, List<String> representTokens, double maxDistance) {
+    public static Boolean belongsToCluster(List<String> logTokens, List<String> representTokens, double maxDistance) {
         int minSize = Math.min(logTokens.size(), representTokens.size());
         int maxSize = Math.max(logTokens.size(), representTokens.size());
         if (maxSize == 0) {
@@ -45,7 +48,10 @@ public class FastClustering {
         }
         PatternTree projectPatternTree = patternTrees.get(projectName);
 
-        List<String> tokens = Tokenizer.simpleTokenize(Identifier.identifyIP(text, "NELO_IP"));
+        String preprocessedText = Identifier.identifyIP(text, "NELO_IP");
+        preprocessedText = Identifier.identifyDatetime(preprocessedText, "NELO_DATETIME");
+
+        List<String> tokens = Tokenizer.simpleTokenize(preprocessedText);
         Map<String, PatternNode> levelNodes = projectPatternTree.getNodes(nodeLevel);
         if (levelNodes != null) {
             for (Map.Entry<String, PatternNode> entry : levelNodes.entrySet()) {
@@ -54,7 +60,6 @@ public class FastClustering {
                 }
             }
         }
-
 
         //TODO: Add new Node, first synchronize
         // 1. get new Node Id, if success, add new Node,
@@ -73,5 +78,16 @@ public class FastClustering {
         }
 
         return "";
+    }
+
+    public static String getPatternTreeString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Map.Entry<String, PatternTree> entry : patternTrees.entrySet()) {
+            stringBuilder.append(String.format("projectName: %s:", entry.getKey()));
+            stringBuilder.append(System.getProperty("line.separator"));
+            stringBuilder.append(String.format("\t%s", entry.getValue().toString()));
+            stringBuilder.append(System.getProperty("line.separator"));
+        }
+        return stringBuilder.toString();
     }
 }
