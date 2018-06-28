@@ -68,8 +68,9 @@ public class PatternTree {
         StringBuilder stringBuilder = new StringBuilder();
         for (Map.Entry<Integer, Map<String, PatternNode>> entry : tree.entrySet()) {
            stringBuilder.append(String.format("level: %d,", entry.getKey()));
+            stringBuilder.append(System.getProperty("line.separator"));
            for (Map.Entry<String, PatternNode> entryNode: entry.getValue().entrySet()) {
-               stringBuilder.append(String.format("\tnodeId: %s, nodeInfo: %s",
+               stringBuilder.append(String.format("\t\tnodeId: %s, nodeInfo: %s",
                        entryNode.getKey(), entryNode.getValue().toString()));
                stringBuilder.append(System.getProperty("line.separator"));
            }

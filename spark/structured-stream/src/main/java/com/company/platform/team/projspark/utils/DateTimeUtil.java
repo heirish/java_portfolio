@@ -40,7 +40,7 @@ public class DateTimeUtil {
                    }
                    if (digit >= 1970 && digit < 10000) {
                        dateTime.year = digit;
-                   } else if (digit )
+                   } //else if (digit )
                 }
                 }
         }

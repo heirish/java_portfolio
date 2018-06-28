@@ -57,6 +57,12 @@
     </dependencies>
 
     <build>
+        <!-- for jar package on server can not find the log4j.xml file -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -77,15 +83,35 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <configuration>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.company.platform.team.proj.SimpleApp</mainClass>
-                                </transformer>
-                            </transformers>
-                        </configuration>
                     </execution>
                 </executions>
+                <configuration>
+                    <filters>
+                        <filter>
+                            <!-- This filter is to workaround the problem caused by included signed jars.
+                                     java.lang.SecurityException: Invalid signature file digest for Manifest main attributes
+                                     https://www.cnblogs.com/buptl/archive/2017/04/27/6774016.html
+                                -->
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                    <artifactSet>
+                        <excludes>
+                            <exclude>org.apache.spark:*</exclude>
+                            <exclude>junit:*</exclude>
+                        </excludes>
+                    </artifactSet>
+                    <!--transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                            <mainClass>com.company.platform.team.proj.SimpleApp</mainClass>
+                        </transformer>
+                    </transformers-->
+                </configuration>
             </plugin>
         </plugins>
     </build>

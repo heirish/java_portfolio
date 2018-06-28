@@ -2,7 +2,7 @@ package com.company.platform.team.projspark.preprocess;
 
 import com.company.platform.team.projspark.data.DateTimeMatchedSlice;
 import com.company.platform.team.projspark.data.MatchedSlice;
-import com.company.platform.team.projspark.utils.DateUtil;
+import com.company.platform.team.projspark.utils.DateTimeUtil;
 import javafx.util.Pair;
 import org.apache.commons.lang.StringUtils;
 
@@ -172,7 +172,7 @@ public class DateFinderRegex {
         }
 
         try {
-            DateUtil.tryParse(datetimeString);
+            DateTimeUtil.tryParse(datetimeString);
             return true;
         } catch (Exception e) {
             return false;

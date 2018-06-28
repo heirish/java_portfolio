@@ -4,9 +4,7 @@ import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.modules.FastClustering;
 import com.google.gson.Gson;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.log4j.Logger;
-import org.apache.spark.api.java.JavaRDD;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.Dataset;
@@ -35,33 +33,9 @@ public class StructuredStream{
         try{
             parseArgs(args);
 
-            SparkSession spark =  SparkSession.builder().appName("StructuredStream").getOrCreate();
-            // https://people.apache.org/~pwendell/spark-nightly/spark-master-docs/latest/structured-streaming-programming-guide.html
-            // https://stackoverflow.com/questions/46153105/how-to-get-kafka-offsets-for-structured-query-for-manual-and-reliable-offset-man/46174353
-            // https://www.jianshu.com/p/ae07471c1f8d
-            spark.streams().addListener(new StreamingQueryListener() {
-                @Override
-                public void onQueryStarted(QueryStartedEvent queryStartedEvent) {
-                    logger.debug("query started: " + queryStartedEvent.id());
-                }
+            SparkSession spark = createSparkSession("StructuredStream");
 
-                @Override
-                public void onQueryProgress(QueryProgressEvent queryProgressEvent) {
-                    SourceProgress[] sources = queryProgressEvent.progress().sources();
-                    for (SourceProgress source: sources) {
-                        logger.debug("start offset: " + source.startOffset());
-                        logger.debug("end offset: " + source.endOffset());
-                    }
-                    // 可以写回kafka或写到第三方统计平台
-                    logger.debug("query processing: " + queryProgressEvent.progress());
-                }
-
-                @Override
-                public void onQueryTerminated(QueryTerminatedEvent queryTerminatedEvent) {
-                    logger.debug("query terminated: " + queryTerminatedEvent.id());
-                }
-            });
-
+            //Data input
             Dataset<Row> df = spark
                     .readStream()
                     .format("kafka")
@@ -70,53 +44,83 @@ public class StructuredStream{
                     // .option("startingOffsets", "latest")
                     .load();
 
-            // df.toJavaRDD().foreach();
-            // df.foreach();
-            // df.map();
+            //processing
             Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
             Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
                 @Override
                 public String call(String s) throws Exception {
-                    Map<String, String> fields = gson.fromJson(s, Map.class);
-                    if (fields.containsKey(Constants.FIELD_BODY)
-                            && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
-                        long start = System.nanoTime();
-                        String body = fields.get(Constants.FIELD_BODY);
-                        String projectName = fields.get(Constants.FIELD_PROJECTNAME);
-                        String leafId = FastClustering.findCluster(projectName, body, 0, 0.3);
-                        long end = System.nanoTime();
-                        fields.put("leafId", leafId);
-                        fields.put("processTimeCost",
-                                String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
-                        //logger.info(String.format("Found cluster %s for log %s", leafId, body));
-                        //logger.info(FastClustering.getPatternTreeString());
-                        return gson.toJson(fields);
-                    } else {
-                        return s;
-                    }
+                    return findCluster(s);
                 }
             }, Encoders.STRING());
 
-            StreamingQuery query = dfLogWithLeafId
+            // Data output downflow to index
+            StreamingQuery queryIndex = dfLogWithLeafId
                     .writeStream()
                     .format("json")
-                    .option("checkpointLocation", "./checkpoint")
+                    .option("checkpointLocation", "./outputcheckpoint")
                     .option("path", "./output")
                     .outputMode("append")
                     .start();
 
-            query.awaitTermination();
+            // Data to pattern retriever;
+            StreamingQuery queryPatternBase= dfLogWithLeafId
+                    .writeStream()
+                    .format("json")
+                    .option("checkpointLocation", "./patternbasecheckpoint")
+                    .option("path", "./patternbase")
+                    .outputMode("append")
+                    .start();
+
+            queryIndex.awaitTermination();
+            queryPatternBase.awaitTermination();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void rddProcess(JavaRDD<ConsumerRecord<String, String>> messages) {
-        if (messages.count() > 0) {
-             messages.foreach( s -> {
-                 logger.debug(s.value());
-             });
-            logger.debug("batch count: " + messages.count());
+    private static SparkSession createSparkSession(String appName) {
+        SparkSession spark =  SparkSession.builder().appName(appName).getOrCreate();
+        spark.streams().addListener(new StreamingQueryListener() {
+            @Override
+            public void onQueryStarted(QueryStartedEvent queryStartedEvent) {
+                logger.debug("query started: " + queryStartedEvent.id());
+            }
+
+            @Override
+            public void onQueryProgress(QueryProgressEvent queryProgressEvent) {
+                SourceProgress[] sources = queryProgressEvent.progress().sources();
+                for (SourceProgress source: sources) {
+                    logger.debug("start offset: " + source.startOffset());
+                    logger.debug("end offset: " + source.endOffset());
+                }
+            }
+
+            @Override
+            public void onQueryTerminated(QueryTerminatedEvent queryTerminatedEvent) {
+                logger.debug("query terminated: " + queryTerminatedEvent.id());
+            }
+        });
+        return spark;
+    }
+
+    private static String findCluster(String log) throws Exception{
+        Map<String, String> fields = gson.fromJson(log, Map.class);
+        if (fields.containsKey(Constants.FIELD_BODY)
+                && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
+            long start = System.nanoTime();
+            String body = fields.get(Constants.FIELD_BODY);
+            String projectName = fields.get(Constants.FIELD_PROJECTNAME);
+            String leafId = FastClustering.findCluster(projectName, body, 0, 0.3);
+            long end = System.nanoTime();
+            fields.put("leafId", leafId);
+
+            //for Test
+            fields.put("bodyLength", String.format("%s", body.length()));
+            fields.put("processTimeCost",
+                    String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
+            return gson.toJson(fields);
+        } else {
+            return log;
         }
     }
 

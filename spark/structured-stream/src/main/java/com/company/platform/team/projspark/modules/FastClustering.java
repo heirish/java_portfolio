@@ -10,6 +10,8 @@ import com.google.common.collect.Maps;
 import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +78,7 @@ public class FastClustering {
             }
             triedTimes ++;
         }
+        saveTreeToFile("treeLeaves");
 
         return "";
     }
@@ -89,5 +92,15 @@ public class FastClustering {
             stringBuilder.append(System.getProperty("line.separator"));
         }
         return stringBuilder.toString();
+    }
+
+    private static void saveTreeToFile(String fileName) {
+        try {
+            FileWriter fw = new FileWriter(fileName);
+            fw.write(getPatternTreeString());
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }
