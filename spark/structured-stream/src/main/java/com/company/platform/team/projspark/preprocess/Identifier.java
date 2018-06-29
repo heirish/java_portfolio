@@ -1,8 +1,11 @@
 package com.company.platform.team.projspark.preprocess;
 
+import com.company.platform.team.projspark.data.MatchedSlice;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.conn.util.InetAddressUtils;
 import org.apache.log4j.Logger;
 
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -74,19 +77,31 @@ public class Identifier {
     }
 
     public static String identifyDatetime(String text, String typeName) {
-//        StringBuilder stringBuilder = new StringBuilder();
-//        List<MatchedSlice> slices = DateFinder.findDates(text);
-//        int lastIndex = 0;
-//        for (MatchedSlice slice : slices) {
-//            stringBuilder.append(text.substring(lastIndex, slice.startIndex));
-//            stringBuilder.append(typeName);
-//            lastIndex = slice.endIndex;
-//        }
-//
-//        if (lastIndex > 0) {
-//            stringBuilder.append(text.substring(lastIndex));
-//        }
-//        return (stringBuilder.length() > 0 ? stringBuilder.toString(): text);
-        return text;
+        List<MatchedSlice> slices = findDates(text, "natty");
+        if (slices == null || slices.size() == 0) {
+            return text;
+        }
+
+        StringBuilder stringBuilder = new StringBuilder();
+        int lastIndex = 0;
+        for (MatchedSlice slice : slices) {
+            stringBuilder.append(text.substring(lastIndex, slice.startIndex));
+            stringBuilder.append(typeName);
+            lastIndex = slice.endIndex;
+        }
+
+        if (lastIndex > 0) {
+            stringBuilder.append(text.substring(lastIndex));
+        }
+        return (stringBuilder.length() > 0 ? stringBuilder.toString() : text);
+    }
+
+    private static List<MatchedSlice> findDates(String text, String finderName) {
+        if (StringUtils.equalsIgnoreCase(finderName, "natty")) {
+            return DateFinderNatty.findDates(text);
+        } else {
+            DateFinderRegex regexFinder = new DateFinderRegex();
+            return regexFinder.findDateTimes(text);
+        }
     }
 }

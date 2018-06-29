@@ -1,34 +1,44 @@
 package com.company.platform.team.projspark.data;
 
-import org.apache.commons.lang.StringUtils;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Created by admin on 2018/6/21.
  */
-public class PatternNode {
+public class PatternNodeBak {
     private List<String> representTokens;
     private List<String> patternTokens;
 
-    private String parentNodeId;
-    // private PatternNodeBak parent;
-    // private List<PatternNodeBak> children;
+    private PatternNodeBak parent;
+    private List<PatternNodeBak> children;
 
-    public PatternNode(List<String> representTokens) {
+    public PatternNodeBak(List<String> representTokens) {
         this.representTokens = representTokens;
         this.patternTokens = representTokens;
-        this.parentNodeId = "";
+
+        this.parent = null;
+        this.children = null;
     }
 
 
     public boolean hasParent() {
-        return StringUtils.isEmpty(parentNodeId);
+        return parent != null;
     }
 
-    public void setParent(String nodeId){
-        this.parentNodeId = nodeId;
+    public boolean hasChildren() {
+       return (children != null && children.size() > 0);
+    }
+
+    public void setParent(PatternNodeBak node){
+        parent = node;
+    }
+
+    public void addChildren(PatternNodeBak node) {
+       if (children == null) {
+           children = new ArrayList<>();
+       }
+       children.add(node);
     }
 
     public List<String> getRepresentTokens(){

@@ -8,6 +8,10 @@
             <param name="ConversionPattern" value="%d{yyyy-MM-dd HH:mm:ss} %-5p - %m%n"/>
         </layout>
     </appender>
+    <!--for natty log is too verbose, annoying-->
+    <logger name="com.joestelmach.natty">
+        <level value="WARN"/>
+    </logger>
     <root>
         <level value="INFO"/>
         <appender-ref ref="logFile"/>

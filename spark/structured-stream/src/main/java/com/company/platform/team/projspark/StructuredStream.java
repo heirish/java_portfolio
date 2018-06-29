@@ -2,7 +2,10 @@ package com.company.platform.team.projspark;
 
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
+import com.company.platform.team.projspark.data.PatternForest;
+import com.company.platform.team.projspark.data.PatternNode;
 import com.company.platform.team.projspark.modules.FastClustering;
+import com.company.platform.team.projspark.preprocess.Preprocessor;
 import com.google.gson.Gson;
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
@@ -15,6 +18,8 @@ import org.apache.spark.sql.streaming.SourceProgress;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -110,7 +115,13 @@ public class StructuredStream{
             long start = System.nanoTime();
             String body = fields.get(Constants.FIELD_BODY);
             String projectName = fields.get(Constants.FIELD_PROJECTNAME);
-            String leafId = FastClustering.findCluster(projectName, body, 0, 0.3);
+            String leafId = FastClustering.findCluster(projectName, 0,
+                    Preprocessor.transform(body), 0.3);
+            //TODO:
+            //if (nodeLevel > 0) {
+            //  setParent();
+            //}
+            //
             long end = System.nanoTime();
             fields.put("leafId", leafId);
 

@@ -3,7 +3,9 @@ package com.company.platform.team.projspark.preprocess;
 import com.company.platform.team.projspark.data.MatchedSlice;
 import com.joestelmach.natty.DateGroup;
 import com.joestelmach.natty.Parser;
+import org.apache.avro.generic.GenericData;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -14,17 +16,16 @@ public class DateFinderNatty {
     private static Parser parser  = new Parser();
 
     public static List<MatchedSlice> findDates(String text) {
+        List<MatchedSlice> slices = new ArrayList<>();
         List<DateGroup> groups = parser.parse(text);
         for (DateGroup group : groups) {
             List<Date> dates = group.getDates();
-            int line = group.getLine();
-            int column = group.getPosition();
-            String matchingValue = group.getText();
-            String syntaxTree = group.getSyntaxTree().toStringTree();
-            boolean isRecurreing = group.isRecurring();
-            System.out.println(dates.toString());
-            System.out.println(matchingValue);
+            MatchedSlice slice = new MatchedSlice();
+            slice.startIndex = group.getAbsolutePosition();
+            slice.matchedString = group.getText();
+            slice.endIndex = slice.startIndex + slice.matchedString.length();
+            slices.add(slice);
         }
-        return null;
+        return slices;
     }
 }

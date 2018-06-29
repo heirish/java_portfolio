@@ -1,8 +1,6 @@
 package com.company.platform.team.projspark.modules;
 
-import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternNode;
-import com.company.platform.team.projspark.data.PatternTree;
+import com.company.platform.team.projspark.data.*;
 import com.company.platform.team.projspark.preprocess.Identifier;
 import com.company.platform.team.projspark.preprocess.Tokenizer;
 import com.google.common.collect.MapDifference;
@@ -12,7 +10,6 @@ import org.apache.log4j.Logger;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,8 +17,6 @@ import java.util.Map;
  * Created by admin on 2018/6/21.
  */
 public class FastClustering {
-    private static final Logger logger = Logger.getLogger("");
-    private static Map<String, PatternTree> patternTrees = new HashMap<>();
 
     public static Boolean belongsToCluster(List<String> logTokens, List<String> representTokens, double maxDistance) {
         int minSize = Math.min(logTokens.size(), representTokens.size());
@@ -44,63 +39,44 @@ public class FastClustering {
         return score > minScore ? true: false;
     }
 
-    public static String findCluster(String projectName, String text, int nodeLevel, double maxDistance){
-        if (!patternTrees.containsKey(projectName)) {
-            patternTrees.put(projectName, new PatternTree(projectName));
-        }
-        PatternTree projectPatternTree = patternTrees.get(projectName);
-
-        String preprocessedText = Identifier.identifyIP(text, "NELO_IP");
-        preprocessedText = Identifier.identifyDatetime(preprocessedText, "NELO_DATETIME");
-
-        List<String> tokens = Tokenizer.simpleTokenize(preprocessedText);
-        Map<String, PatternNode> levelNodes = projectPatternTree.getNodes(nodeLevel);
-        if (levelNodes != null) {
-            for (Map.Entry<String, PatternNode> entry : levelNodes.entrySet()) {
-                if (belongsToCluster(tokens, entry.getValue().getRepresentTokens(), maxDistance)) {
-                    return entry.getValue().getNodeId();
+    /**
+     * input:
+     *      tokens
+     *      name, nodeLevel - where to find, find scope
+     *      maxDistance - scope
+     */
+    public static String findCluster(String name, int nodeLevel, List<String> tokens, double maxDistance) {
+        Map<String, PatternNode> clusters = PatternForest.getInstance().getNodes(name, nodeLevel);
+        if (clusters != null) {
+            for (Map.Entry<String, PatternNode> cluster : clusters.entrySet()) {
+                if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
+                    return cluster.getKey().split(Constants.PATTERN_NODE_KEY_DELIMITER)[2];
                 }
             }
         }
 
-        //TODO: Add new Node, first synchronize
+        //TODO: Add new parent Node, first synchronize
         // 1. get new Node Id, if success, add new Node,
         // else synchronize new Nodes and recompute maxDistance, till get the cluster
         int triedTimes = 0;
-        while (StringUtils.isEmpty(patternTrees.get(projectName).addNode(nodeLevel, tokens))
-                && triedTimes < Constants.FINDCLUSTER_TOLERANCE_TIMES) {
-            Map<String, PatternNode> newLevelNodes = projectPatternTree.getNodes(nodeLevel);
-            MapDifference<String, PatternNode> diff = Maps.difference(levelNodes, newLevelNodes);
-            for (String nodeId: diff.entriesOnlyOnRight().keySet()) {
-                if (belongsToCluster(tokens, newLevelNodes.get(nodeId).getRepresentTokens(), maxDistance)) {
-                    return nodeId;
+        PatternNode parentNode= new PatternNode(tokens);
+        do {
+            String nodeId = PatternForest.getInstance().addNode(name, nodeLevel, parentNode);
+            if (!StringUtils.isEmpty(nodeId)) {
+                return nodeId;
+            } else {
+                Map<String, PatternNode> newLevelNodes = PatternForest.getInstance().getNodes(name, nodeLevel);
+                MapDifference<String, PatternNode> diff = Maps.difference(clusters, newLevelNodes);
+                for (Map.Entry<String, PatternNode> cluster : diff.entriesOnlyOnRight().entrySet()) {
+                    if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
+                        return cluster.getKey().split(Constants.PATTERN_NODE_KEY_DELIMITER)[2];
+                    }
+                    clusters.put(cluster.getKey(), cluster.getValue());
                 }
+                triedTimes++;
             }
-            triedTimes ++;
-        }
-        saveTreeToFile("treeLeaves");
+        } while (triedTimes < Constants.FINDCLUSTER_TOLERANCE_TIMES);
 
         return "";
-    }
-
-    public static String getPatternTreeString() {
-        StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<String, PatternTree> entry : patternTrees.entrySet()) {
-            stringBuilder.append(String.format("projectName: %s:", entry.getKey()));
-            stringBuilder.append(System.getProperty("line.separator"));
-            stringBuilder.append(String.format("\t%s", entry.getValue().toString()));
-            stringBuilder.append(System.getProperty("line.separator"));
-        }
-        return stringBuilder.toString();
-    }
-
-    private static void saveTreeToFile(String fileName) {
-        try {
-            FileWriter fw = new FileWriter(fileName);
-            fw.write(getPatternTreeString());
-            fw.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 }
