@@ -39,11 +39,6 @@
             <version>${hadoop.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-csv</artifactId>
-            <version>${csv.version}</version>
-        </dependency>
-        <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
@@ -121,7 +116,7 @@
         </plugins>
     </build>
 
-    <reporting>
+    <!--reporting>
         <plugins>
             <plugin>
                 <artifactId>maven-project-info-reports-plugin</artifactId>
@@ -166,5 +161,5 @@
                 </configuration>
             </plugin>
         </plugins>
-    </reporting>
+    </reporting-->
 </project>

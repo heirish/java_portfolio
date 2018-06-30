@@ -2,11 +2,21 @@ package com.company.platform.team.projspark;
 
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternForest;
-import com.company.platform.team.projspark.data.PatternNode;
 import com.company.platform.team.projspark.modules.FastClustering;
+import com.company.platform.team.projspark.modules.PatternRetriever;
 import com.company.platform.team.projspark.preprocess.Preprocessor;
+import com.company.platform.team.projspark.utils.RegexPathFilter;
 import com.google.gson.Gson;
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.function.MapFunction;
@@ -18,8 +28,6 @@ import org.apache.spark.sql.streaming.SourceProgress;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
 
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -37,50 +45,79 @@ public class StructuredStream{
     public static void main(String[] args) {
         try{
             parseArgs(args);
+            if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
+               startSparkWork();
+            } else {
+                startHadoopWork();
+            }
 
-            SparkSession spark = createSparkSession("StructuredStream");
-
-            //Data input
-            Dataset<Row> df = spark
-                    .readStream()
-                    .format("kafka")
-                    .option("kafka.bootstrap.servers", appParameters.brokers)
-                    .option("subscribe", appParameters.topics)
-                    // .option("startingOffsets", "latest")
-                    .load();
-
-            //processing
-            Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
-            Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
-                @Override
-                public String call(String s) throws Exception {
-                    return findCluster(s);
-                }
-            }, Encoders.STRING());
-
-            // Data output downflow to index
-            StreamingQuery queryIndex = dfLogWithLeafId
-                    .writeStream()
-                    .format("json")
-                    .option("checkpointLocation", "./outputcheckpoint")
-                    .option("path", "./output")
-                    .outputMode("append")
-                    .start();
-
-            // Data to pattern retriever;
-            StreamingQuery queryPatternBase= dfLogWithLeafId
-                    .writeStream()
-                    .format("json")
-                    .option("checkpointLocation", "./patternbasecheckpoint")
-                    .option("path", "./patternbase")
-                    .outputMode("append")
-                    .start();
-
-            queryIndex.awaitTermination();
-            queryPatternBase.awaitTermination();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static void startSparkWork() throws Exception{
+        SparkSession spark = createSparkSession("StructuredStream");
+
+        //Data input
+        Dataset<Row> df = spark
+                .readStream()
+                .format("kafka")
+                .option("kafka.bootstrap.servers", appParameters.brokers)
+                .option("subscribe", appParameters.topics)
+                // .option("startingOffsets", "latest")
+                .load();
+
+        //processing
+        Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
+        Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
+            @Override
+            public String call(String s) throws Exception {
+                return findCluster(s);
+            }
+        }, Encoders.STRING());
+
+        // Data output downflow to index
+        StreamingQuery queryIndex = dfLogWithLeafId
+                .writeStream()
+                .format("json")
+                .option("checkpointLocation", "./outputcheckpoint")
+                .option("path", "./output")
+                .outputMode("append")
+                .start();
+
+        // Data to pattern retriever;
+        StreamingQuery queryPatternBase= dfLogWithLeafId
+                .writeStream()
+                .format("json")
+                .option("checkpointLocation", "./patternbasecheckpoint")
+                .option("path", "./patternbase")
+                .outputMode("append")
+                .start();
+
+        queryIndex.awaitTermination();
+        queryPatternBase.awaitTermination();
+
+    }
+
+    private static void startHadoopWork() throws Exception{
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "PatternRetrieve");
+        job.setJarByClass(PatternRetriever.class);
+        job.setMapperClass(PatternRetriever.ParentNodeMapper.class);
+        job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
+        job.setReducerClass(PatternRetriever.PatternRetrieveReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+
+        FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
+        FileInputFormat.addInputPath(job, new Path(appParameters.intputDir));
+        job.setInputFormatClass(TextInputFormat.class);
+
+        FileOutputFormat.setOutputPath(job, new Path(appParameters.outputDir));
+        job.setOutputValueClass(TextOutputFormat.class);
+        job.waitForCompletion(true);
+
     }
 
     private static SparkSession createSparkSession(String appName) {
@@ -110,7 +147,7 @@ public class StructuredStream{
 
     private static String findCluster(String log) throws Exception{
         Map<String, String> fields = gson.fromJson(log, Map.class);
-        if (fields.containsKey(Constants.FIELD_BODY)
+        if (fields != null && fields.containsKey(Constants.FIELD_BODY)
                 && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
             long start = System.nanoTime();
             String body = fields.get(Constants.FIELD_BODY);
@@ -135,28 +172,56 @@ public class StructuredStream{
         }
     }
 
-    private static void parseArgs(String[] args){
-        Options options  = new Options();
+    private static void parseArgs(String[] args) throws Exception {
+        Options options = new Options();
         options.addOption("h", "help", false, "show help");
+        options.addOption("j", "job", true, "job type");
         options.addOption("b", "brokers", true, "brokers");
         options.addOption("t", "topics", true, "topics");
+        options.addOption("i", "input",true, "input dir");
+        options.addOption("o", "output", true, "output dir");
 
         CommandLineParser parser = new BasicParser();
-        try{
-            CommandLine commands = parser.parse(options, args);
-            if (commands.hasOption("h")) {
-                showHelp(options);
+        CommandLine commands = parser.parse(options, args);
+        if (commands.hasOption("h")) {
+            showHelp(options);
+        }
+
+        if (commands.hasOption("j")) {
+            appParameters.jobType = commands.getOptionValue("j");
+        }
+
+        if (commands.hasOption("b")) {
+            appParameters.brokers = commands.getOptionValue("b");
+        }
+        if (commands.hasOption("t")) {
+            appParameters.topics = commands.getOptionValue("t");
+        }
+
+        if (commands.hasOption("i")) {
+            appParameters.intputDir = commands.getOptionValue("i");
+        }
+        if (commands.hasOption("o")) {
+            appParameters.outputDir = commands.getOptionValue("o");
+        }
+
+
+        if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
+            logger.info("brokers " + appParameters.brokers);
+            logger.info("topics " + appParameters.topics);
+            if (StringUtils.isEmpty(appParameters.brokers)
+                    || StringUtils.isEmpty(appParameters.topics)) {
+                throw new Exception("spark work should have brokers and topics parameter");
             }
-            if (commands.hasOption("b")) {
-                appParameters.brokers = commands.getOptionValue("b");
+        } else {
+            if (StringUtils.isEmpty(appParameters.intputDir)
+                    || StringUtils.isEmpty(appParameters.outputDir)) {
+                throw new Exception("hadoop work should have inputdir and outputdir parameter");
             }
-            if (commands.hasOption("t")) {
-                appParameters.topics = commands.getOptionValue("t");
-            }
-        } catch (ParseException e) {
-            e.printStackTrace();
         }
     }
+
+
 
     private static void showHelp(Options options) {
         HelpFormatter formater = new HelpFormatter();

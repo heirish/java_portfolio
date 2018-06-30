@@ -50,7 +50,7 @@ public class FastClustering {
         if (clusters != null) {
             for (Map.Entry<String, PatternNode> cluster : clusters.entrySet()) {
                 if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
-                    return cluster.getKey().split(Constants.PATTERN_NODE_KEY_DELIMITER)[2];
+                    return PatternForest.getNodeIdFromKey(cluster.getKey());
                 }
             }
         }
@@ -69,7 +69,10 @@ public class FastClustering {
                 MapDifference<String, PatternNode> diff = Maps.difference(clusters, newLevelNodes);
                 for (Map.Entry<String, PatternNode> cluster : diff.entriesOnlyOnRight().entrySet()) {
                     if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
-                        return cluster.getKey().split(Constants.PATTERN_NODE_KEY_DELIMITER)[2];
+                        nodeId = PatternForest.getNodeIdFromKey(cluster.getKey());
+                        if (!StringUtils.isEmpty(nodeId)) {
+                            return nodeId;
+                        }
                     }
                     clusters.put(cluster.getKey(), cluster.getValue());
                 }

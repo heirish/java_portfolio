@@ -2,10 +2,7 @@ package com.company.platform.team.projspark.data;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by admin on 2018/6/29.
@@ -15,8 +12,8 @@ import java.util.Map;
 public final class PatternForest {
     private static Map<String, PatternNode> patternNodes= new HashMap<>();
     private static PatternForest forest = new PatternForest();
-    //TODO:
-    //add Map<proj, Map<level, nodeId>> to fast the getNodes
+    //for fast getNodes
+    //private static Map<String, List<String> patternNodeIds = new HashMap<>();
 
     private String formatPatternNodeKey(String projectName, int level, String nodeId) {
         return String.format("%s%s%s%s%s",
@@ -25,12 +22,23 @@ public final class PatternForest {
                 nodeId);
     }
 
+    public static String getNodeIdFromKey(String key) {
+        try {
+            return key.split(Constants.PATTERN_NODE_KEY_DELIMITER)[2];
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public static PatternForest getInstance() {
         return forest;
     }
 
     private static String getNodeId() {
-        return "";
+        //TODO: request from the NodeId center
+        // if the max Id is greater than local, then synchronize
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     public PatternNode getNode(String name, int nodeLevel, String nodeId) {

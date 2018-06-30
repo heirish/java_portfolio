@@ -1,5 +1,6 @@
 package com.company.platform.team.projspark.utils;
 
+import com.company.platform.team.projspark.data.Constants;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
@@ -18,5 +19,17 @@ public class ListUtilTest {
         List<String> newTokens = ListUtil.removeExcessiveDuplicates(tokens, " ", 1);
         logger.info(newTokens);
         logger.info(String.join("", newTokens));
+    }
+
+    @Test
+    public void splitWithStringTest()
+    {
+        String key = String.format("%s%s%s%s%s",
+                "test", Constants.PATTERN_NODE_KEY_DELIMITER,
+                "0", Constants.PATTERN_NODE_KEY_DELIMITER,
+                "waefsdf");
+        String[] fields = key.split(Constants.PATTERN_NODE_KEY_DELIMITER);
+        System.out.println(key.split(Constants.PATTERN_NODE_KEY_DELIMITER)[2]);
+        System.out.println(Arrays.toString(fields));
     }
 }
