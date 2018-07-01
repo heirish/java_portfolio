@@ -9,6 +9,7 @@ public class AppParameters {
     public String brokers;
     public String topics;
 
-    public String intputDir;
+    public String inputDir;
+    public String inputfilter;
     public String outputDir;
 }

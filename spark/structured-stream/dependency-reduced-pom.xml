@@ -43,7 +43,6 @@
           </filters>
           <artifactSet>
             <excludes>
-              <exclude>org.apache.spark:*</exclude>
               <exclude>junit:*</exclude>
             </excludes>
           </artifactSet>
@@ -52,24 +51,6 @@
     </plugins>
   </build>
   <dependencies>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql_2.11</artifactId>
-      <version>2.3.1</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming-kafka-0-10_2.11</artifactId>
-      <version>2.3.1</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.spark</groupId>
-      <artifactId>spark-sql-kafka-0-10_2.11</artifactId>
-      <version>2.3.1</version>
-      <scope>compile</scope>
-    </dependency>
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>

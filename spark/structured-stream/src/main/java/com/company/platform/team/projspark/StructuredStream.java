@@ -3,20 +3,11 @@ package com.company.platform.team.projspark;
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.modules.FastClustering;
-import com.company.platform.team.projspark.modules.PatternRetriever;
 import com.company.platform.team.projspark.preprocess.Preprocessor;
-import com.company.platform.team.projspark.utils.RegexPathFilter;
+import com.company.platform.team.projspark.utils.FluentScheduledExecutorService;
+import com.company.platform.team.projspark.utils.PatternRetrieveTask;
 import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
-import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
-import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.function.MapFunction;
@@ -43,12 +34,12 @@ public class StructuredStream{
     private static final Gson gson = new Gson();
 
     public static void main(String[] args) {
-        try{
+        try {
             parseArgs(args);
             if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
-               startSparkWork();
+                startSparkWork();
             } else {
-                startHadoopWork();
+                startScheduledHadoopWork(1, 5, TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {
@@ -100,25 +91,14 @@ public class StructuredStream{
 
     }
 
-    private static void startHadoopWork() throws Exception{
-        Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "PatternRetrieve");
-        job.setJarByClass(PatternRetriever.class);
-        job.setMapperClass(PatternRetriever.ParentNodeMapper.class);
-        job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
-        job.setReducerClass(PatternRetriever.PatternRetrieveReducer.class);
-        job.setOutputKeyClass(Text.class);
-        job.setOutputValueClass(IntWritable.class);
-
-        FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
-        FileInputFormat.addInputPath(job, new Path(appParameters.intputDir));
-        job.setInputFormatClass(TextInputFormat.class);
-
-        FileOutputFormat.setOutputPath(job, new Path(appParameters.outputDir));
-        job.setOutputValueClass(TextOutputFormat.class);
-        job.waitForCompletion(true);
+    private static void startScheduledHadoopWork(long initialDelay,
+                                                 long period, TimeUnit unit) throws Exception{
+        new FluentScheduledExecutorService(1)
+                .scheduleWithFixedDelay(new PatternRetrieveTask(appParameters),
+                        initialDelay, period, unit);
 
     }
+
 
     private static SparkSession createSparkSession(String appName) {
         SparkSession spark =  SparkSession.builder().appName(appName).getOrCreate();
@@ -179,9 +159,11 @@ public class StructuredStream{
         options.addOption("b", "brokers", true, "brokers");
         options.addOption("t", "topics", true, "topics");
         options.addOption("i", "input",true, "input dir");
+        options.addOption("r", "inputregex",true, "input dir regex filter");
         options.addOption("o", "output", true, "output dir");
 
-        CommandLineParser parser = new BasicParser();
+        //CommandLineParser parser = new BasicParser();
+        CommandLineParser parser = new GnuParser();
         CommandLine commands = parser.parse(options, args);
         if (commands.hasOption("h")) {
             showHelp(options);
@@ -199,7 +181,10 @@ public class StructuredStream{
         }
 
         if (commands.hasOption("i")) {
-            appParameters.intputDir = commands.getOptionValue("i");
+            appParameters.inputDir = commands.getOptionValue("i");
+        }
+        if (commands.hasOption("r")) {
+            appParameters.inputfilter= commands.getOptionValue("r");
         }
         if (commands.hasOption("o")) {
             appParameters.outputDir = commands.getOptionValue("o");
@@ -214,14 +199,12 @@ public class StructuredStream{
                 throw new Exception("spark work should have brokers and topics parameter");
             }
         } else {
-            if (StringUtils.isEmpty(appParameters.intputDir)
+            if (StringUtils.isEmpty(appParameters.inputDir)
                     || StringUtils.isEmpty(appParameters.outputDir)) {
                 throw new Exception("hadoop work should have inputdir and outputdir parameter");
             }
         }
     }
-
-
 
     private static void showHelp(Options options) {
         HelpFormatter formater = new HelpFormatter();
