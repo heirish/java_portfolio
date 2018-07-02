@@ -12,6 +12,7 @@ import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.function.MapFunction;
 import org.apache.spark.sql.*;
+import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.streaming.SourceProgress;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
@@ -39,7 +40,7 @@ public class StructuredStream{
         try {
             parseArgs(args);
             if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
-                startSparkWork();
+                startSparkWork1();
             } else {
                 startScheduledHadoopWork(1, 5, TimeUnit.SECONDS);
             }
@@ -51,7 +52,7 @@ public class StructuredStream{
 
     //https://github.com/apache/spark/blob/master/examples/src/main/java/org/apache/spark/examples/sql/JavaSparkSQLExample.java
     //http://timepasstechies.com/spark-dataframe-split-one-column-multiple-columns-using-split-function/
-    private static void startSparkWorkd1() throws Exception {
+    private static void startSparkWork1() throws Exception {
         SparkSession spark = createSparkSession("StructuredStream");
 
         //Data input
@@ -67,18 +68,39 @@ public class StructuredStream{
         Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
         List<StructField> columns = new ArrayList<>();
         columns.add(DataTypes.createStructField("log_content", DataTypes.StringType, false));
-        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNID, DataTypes.StringType, false));
-        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNTOKENS, DataTypes.StringType, false));
+        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNID, DataTypes.StringType, true));
+        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNTOKENS, DataTypes.StringType, true));
         StructType structType = DataTypes.createStructType(columns);
         Dataset<Row>dfLogWithLeafId = dfLog.map(new MapFunction<String, Row>() {
             @Override
             public Row call(String s) throws Exception {
-                return RowFactory.create(s, )
+                Map<String, String> fields = gson.fromJson(s, Map.class);
+                if (fields != null && fields.containsKey(Constants.FIELD_BODY)
+                        && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
+                    long start = System.nanoTime();
+                    String body = fields.get(Constants.FIELD_BODY);
+                    String projectName = fields.get(Constants.FIELD_PROJECTNAME);
+                    List<String> tokens = Preprocessor.transform(body);
+                    String leafId = FastClustering.findCluster(projectName, 0,
+                            tokens, 0.3);
+                    long end = System.nanoTime();
+                    fields.put(Constants.FIELD_LEAFID, leafId);
+
+                    //for Test
+                    fields.put("bodyLength", String.format("%s", body.length()));
+                    fields.put("processTimeCost",
+                            String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
+                    return RowFactory.create(gson.toJson(fields),
+                            leafId, String.join(Constants.PATTERN_NODE_KEY_DELIMITER, tokens));
+                } else {
+                    return RowFactory.create(s, "", "");
+                }
             }
-        }, Encoders.javaSerialization(Row.class));
+        }, RowEncoder.apply(structType));
 
         // Data output downflow to index
         StreamingQuery queryIndex = dfLogWithLeafId
+                .select("log_content")
                 .writeStream()
                 .format("json")
                 .option("checkpointLocation", "./outputcheckpoint")
@@ -88,6 +110,9 @@ public class StructuredStream{
 
         // Data to pattern retriever;
         StreamingQuery queryPatternBase= dfLogWithLeafId
+                //.selectExpr("CAST (patternId as STRING) as patternId", "CAST (bodyTokens as STRING) as bodyTokens")
+                //already been string after mapFunction
+                .select(Constants.FIELD_PATTERNID, Constants.FIELD_PATTERNTOKENS)
                 .writeStream()
                 .format("json")
                 .option("checkpointLocation", "./patternbasecheckpoint")
@@ -114,19 +139,12 @@ public class StructuredStream{
 
         //processing
         Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
-        //Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
-        //    @Override
-        //    public String call(String s) throws Exception {
-        //        return findCluster(s);
-        //    }
-        //}, Encoders.STRING());
-        Dataset<Row>dfLogWithLeafId = dfLog.map(new MapFunction<String, Row>() {
+        Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
             @Override
-            public Row call(String s) throws Exception {
-                return RowFactory.create(s, "id");
-                //return findCluster(s);
+            public String call(String s) throws Exception {
+                return findCluster(s);
             }
-        }, Encoders.javaSerialization(Row.class));
+        }, Encoders.STRING());
 
         // Data output downflow to index
         StreamingQuery queryIndex = dfLogWithLeafId
