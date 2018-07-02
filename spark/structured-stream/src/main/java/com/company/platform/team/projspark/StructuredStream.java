@@ -11,14 +11,16 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.log4j.Logger;
 import org.apache.commons.cli.*;
 import org.apache.spark.api.java.function.MapFunction;
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Encoders;
-import org.apache.spark.sql.Row;
-import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.*;
 import org.apache.spark.sql.streaming.SourceProgress;
 import org.apache.spark.sql.streaming.StreamingQuery;
 import org.apache.spark.sql.streaming.StreamingQueryListener;
+import org.apache.spark.sql.types.DataTypes;
+import org.apache.spark.sql.types.StructField;
+import org.apache.spark.sql.types.StructType;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -47,6 +49,57 @@ public class StructuredStream{
         }
     }
 
+    //https://github.com/apache/spark/blob/master/examples/src/main/java/org/apache/spark/examples/sql/JavaSparkSQLExample.java
+    //http://timepasstechies.com/spark-dataframe-split-one-column-multiple-columns-using-split-function/
+    private static void startSparkWorkd1() throws Exception {
+        SparkSession spark = createSparkSession("StructuredStream");
+
+        //Data input
+        Dataset<Row> df = spark
+                .readStream()
+                .format("kafka")
+                .option("kafka.bootstrap.servers", appParameters.brokers)
+                .option("subscribe", appParameters.topics)
+                // .option("startingOffsets", "latest")
+                .load();
+
+        //processing
+        Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
+        List<StructField> columns = new ArrayList<>();
+        columns.add(DataTypes.createStructField("log_content", DataTypes.StringType, false));
+        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNID, DataTypes.StringType, false));
+        columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNTOKENS, DataTypes.StringType, false));
+        StructType structType = DataTypes.createStructType(columns);
+        Dataset<Row>dfLogWithLeafId = dfLog.map(new MapFunction<String, Row>() {
+            @Override
+            public Row call(String s) throws Exception {
+                return RowFactory.create(s, )
+            }
+        }, Encoders.javaSerialization(Row.class));
+
+        // Data output downflow to index
+        StreamingQuery queryIndex = dfLogWithLeafId
+                .writeStream()
+                .format("json")
+                .option("checkpointLocation", "./outputcheckpoint")
+                .option("path", "./output")
+                .outputMode("append")
+                .start();
+
+        // Data to pattern retriever;
+        StreamingQuery queryPatternBase= dfLogWithLeafId
+                .writeStream()
+                .format("json")
+                .option("checkpointLocation", "./patternbasecheckpoint")
+                .option("path", "./patternbase")
+                .outputMode("append")
+                .start();
+
+        queryIndex.awaitTermination();
+        queryPatternBase.awaitTermination();
+
+    }
+
     private static void startSparkWork() throws Exception{
         SparkSession spark = createSparkSession("StructuredStream");
 
@@ -61,12 +114,19 @@ public class StructuredStream{
 
         //processing
         Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
-        Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
+        //Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
+        //    @Override
+        //    public String call(String s) throws Exception {
+        //        return findCluster(s);
+        //    }
+        //}, Encoders.STRING());
+        Dataset<Row>dfLogWithLeafId = dfLog.map(new MapFunction<String, Row>() {
             @Override
-            public String call(String s) throws Exception {
-                return findCluster(s);
+            public Row call(String s) throws Exception {
+                return RowFactory.create(s, "id");
+                //return findCluster(s);
             }
-        }, Encoders.STRING());
+        }, Encoders.javaSerialization(Row.class));
 
         // Data output downflow to index
         StreamingQuery queryIndex = dfLogWithLeafId
@@ -140,7 +200,7 @@ public class StructuredStream{
             //}
             //
             long end = System.nanoTime();
-            fields.put("leafId", leafId);
+            fields.put(Constants.FIELD_LEAFID, leafId);
 
             //for Test
             fields.put("bodyLength", String.format("%s", body.length()));

@@ -41,9 +41,12 @@ public final class PatternForest {
         return UUID.randomUUID().toString().replace("-", "");
     }
 
+    public PatternNode getNode(String nodeKey) {
+        return patternNodes.get(nodeKey);
+    }
     public PatternNode getNode(String name, int nodeLevel, String nodeId) {
         String nodeKey = formatPatternNodeKey(name, nodeLevel, nodeId);
-        return patternNodes.get(nodeKey);
+        return getNode(nodeKey);
     }
 
     public Map<String, PatternNode> getNodes(String name, int nodeLevel) {
