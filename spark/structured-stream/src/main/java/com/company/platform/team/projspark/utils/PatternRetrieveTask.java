@@ -2,7 +2,7 @@ package com.company.platform.team.projspark.utils;
 
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternForest;
+import com.company.platform.team.projspark.data.PatternLevelTree;
 import com.company.platform.team.projspark.modules.PatternRetriever;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
@@ -30,6 +30,7 @@ public class PatternRetrieveTask implements Runnable {
 
     @Override
     public void run() {
+        //or by project, by level
         for (int i = 0; i < Constants.MAX_PATTERN_LEVEL; i++) {
             try {
                 Configuration conf = new Configuration();
@@ -54,14 +55,13 @@ public class PatternRetrieveTask implements Runnable {
                 System.out.println(input.toString());
                 FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
                 FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
-                //job.setInputFormatClass(TextInputFormat.class);
 
-                // FileOutputFormat.setOutputPath(job, new Path(appParameters.outputDir));
                 // For test
                 FileOutputFormat.setOutputPath(job,
                         new Path(appParameters.outputDir + "-" + System.currentTimeMillis()));
                 job.waitForCompletion(true);
-                PatternForest.getInstance().saveTreeToFile("./patterntree");
+                //TODO: if (i==0) { remove inputDir}
+                PatternLevelTree.getInstance().saveTreeToFile("./patterntree");
                 System.out.println("Sleeping ...");
             } catch (IOException ioe) {
                 ioe.printStackTrace();

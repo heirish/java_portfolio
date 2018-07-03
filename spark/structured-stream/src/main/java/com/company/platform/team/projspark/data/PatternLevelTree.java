@@ -1,6 +1,7 @@
 package com.company.platform.team.projspark.data;
 
 import com.company.platform.team.projspark.modules.FastClustering;
+import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.StringUtils;
@@ -14,18 +15,21 @@ import java.util.*;
  * Singletone
  */
 // TODO:thread safe
-public final class PatternForest {
+public final class PatternLevelTree {
     //Map<project-level, Map<project-level-nodeid, PatternNode>>
-    private static Map<String, Map<String, PatternNode>> patternNodes= new HashMap<>();
-    private static PatternForest forest = new PatternForest();
-    private static String lastUpdatedTime = "";
+    private Map<String, Map<String, PatternNode>> patternNodes;
+    private PatternTreeHelper treeHelper;
+    private static PatternLevelTree forest = new PatternLevelTree();
 
-    //TODO:load data from Nodes Center
-    private PatternForest() {
-
+    private PatternLevelTree() {
+        //TODO:recover from local checkpoint
+        patternNodes = new HashMap<>();
+        treeHelper = new PatternTreeHelper();
+        Map<String, PatternNode> nodes = treeHelper.getAllNodes();
+        //TODO: split nodes by project+level
     }
 
-    public static PatternForest getInstance() {
+    public static PatternLevelTree getInstance() {
         return forest;
     }
 
@@ -66,7 +70,7 @@ public final class PatternForest {
         String levelKey = String.format("%s%s%s", projectName, Constants.PATTERN_NODE_KEY_DELIMITER, nodeLevel);
         String nodeKey = String.format("%s%s%s", levelKey, Constants.PATTERN_NODE_KEY_DELIMITER, nodeId);
         if (patternNodes.containsKey(levelKey) && patternNodes.get(levelKey).containsKey(nodeKey)) {
-            if(updateNodesToCenter(projectName, nodeLevel, nodeId, node)) {
+            if(treeHelper.updateNodesToCenter(projectName, nodeLevel, nodeId, node)) {
                 patternNodes.get(levelKey).put(nodeKey, node);
             } else {
                 throw new Exception("udpate to Nodes center failed");
@@ -76,19 +80,10 @@ public final class PatternForest {
         }
     }
 
-    public boolean addNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
-        // TODO:
-        // 1. send lastUpdatedTime and nodeinfo to Center
-        // 2. if center return tells that need to synchronize
-        //        synchronize and return false
-        // 3. else return what center returned, true - center added succeed, false - center added failure
-        return true;
-    }
-
     public String addNode(String projectName, int nodeLevel, PatternNode node) {
         try {
             String nodeId = UUID.randomUUID().toString().replace("-", "");
-            if (addNodesToCenter(projectName, nodeLevel, nodeId, node)) {
+            if (treeHelper.addNodesToCenter(projectName, nodeLevel, nodeId, node)) {
                 String levelKey = String.format("%s%s%s", projectName, Constants.PATTERN_NODE_KEY_DELIMITER, nodeLevel);
                 String nodeKey = String.format("%s%s%s", levelKey, Constants.PATTERN_NODE_KEY_DELIMITER, nodeId);
                 if (patternNodes.containsKey(levelKey)) {
@@ -142,11 +137,6 @@ public final class PatternForest {
         return nodes;
     }
 
-    public boolean updateNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
-        // TODO:
-        return true;
-    }
-
     public String visualize() {
        return "";
     }
@@ -174,7 +164,7 @@ public final class PatternForest {
     public void saveTreeToFile(String fileName) {
         try {
             FileWriter fw = new FileWriter(fileName);
-            fw.write(PatternForest.getInstance().toString());
+            fw.write(PatternLevelTree.getInstance().toString());
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();

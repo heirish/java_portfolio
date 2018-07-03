@@ -1,14 +1,11 @@
 package com.company.platform.team.projspark.modules;
 
 import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternForest;
+import com.company.platform.team.projspark.data.PatternLevelTree;
 import com.company.platform.team.projspark.data.PatternNode;
-import com.company.platform.team.projspark.preprocess.Tokenizer;
 import com.company.platform.team.projspark.utils.ListUtil;
 import com.google.gson.Gson;
-import com.sun.tools.classfile.ConstantPool;
 import edu.emory.mathcs.backport.java.util.Arrays;
-import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -17,7 +14,6 @@ import org.apache.hadoop.mapreduce.Reducer;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.DoubleAccumulator;
 
 /**
  * Created by admin on 2018/6/21.
@@ -67,7 +63,7 @@ public class PatternRetriever {
                 int nodeLevel = Integer.parseInt(keyItems[1]);
                 String nodeId = keyItems[2];
 
-                PatternNode node = PatternForest.getInstance().getNode(key.toString());
+                PatternNode node = PatternLevelTree.getInstance().getNode(key.toString());
                 List<String> newTokens = node.getPatternTokens();
                 for (Text value : values) {
                     List<String> tokens2 = Arrays.asList(value.toString().split(Constants.PATTERN_NODE_KEY_DELIMITER));
@@ -76,13 +72,13 @@ public class PatternRetriever {
                 node.updatePatternTokens(newTokens);
 
                 if (node.hasParent()) {
-                    String parentId = PatternForest.getInstance()
+                    String parentId = PatternLevelTree.getInstance()
                             .getParentNodeId(newTokens, projectName, nodeLevel, maxDist);
                     node.setParent(parentId);
                 }
 
                 //update the tree node(parent Id and pattern) by key
-                PatternForest.getInstance().updateNode(projectName, nodeLevel, nodeId, node);
+                PatternLevelTree.getInstance().updateNode(projectName, nodeLevel, nodeId, node);
                 Text reduceOutValue = new Text();
                 reduceOutValue.set(String.join("", newTokens));
             } catch (Exception e) {

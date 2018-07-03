@@ -2,8 +2,7 @@ package com.company.platform.team.projspark;
 
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternForest;
-import com.company.platform.team.projspark.modules.FastClustering;
+import com.company.platform.team.projspark.data.PatternLeaves;
 import com.company.platform.team.projspark.preprocess.Preprocessor;
 import com.company.platform.team.projspark.utils.FluentScheduledExecutorService;
 import com.company.platform.team.projspark.utils.PatternRetrieveTask;
@@ -86,7 +85,7 @@ public class StructuredStream{
                     String body = fields.get(Constants.FIELD_BODY);
                     String projectName = fields.get(Constants.FIELD_PROJECTNAME);
                     List<String> tokens = Preprocessor.transform(body);
-                    String leafId = PatternForest.getInstance().getParentNodeId(tokens, projectName, 0,
+                    String leafId = PatternLeaves.getInstance().getParentNodeId(tokens, projectName,
                             1-appParameters.similarityDecayFactor);
                     long end = System.nanoTime();
                     fields.put(Constants.FIELD_LEAFID, leafId);

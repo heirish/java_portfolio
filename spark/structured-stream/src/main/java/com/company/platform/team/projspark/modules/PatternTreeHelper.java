@@ -1,37 +1,53 @@
 package com.company.platform.team.projspark.modules;
 
 import com.company.platform.team.projspark.data.Constants;
+import com.company.platform.team.projspark.data.PatternNode;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by admin on 2018/6/29.
  */
 public class PatternTreeHelper {
+    private String lastUpdatedTime = "";
 
-    //findParent and setNodeParent runs when fast clustering
-
-    //setNodePattern runs when pattern retrieve
-
-    //deleteNode runs when clear data
-
-    //synchronize is to send tree to local cache, runs when findParent added a new parent
-    //does master need to know which server has which tree expired?
-    public String findParent(int level, List<String> tokens) {
-        //TODO:distance decay according to level, distancemanger
-        //user can only change the distance through configure, can't set it in running time.
-        double maxdistance = Constants.PATTERN_LEAF_MAXDIST;
-        //get all the level nodes
-        //calculate the distance
-        //if exists, return nodeId
-        //else, add a new node this level of the tree
-        return "";
+    public Map<String, PatternNode> getAllNodes() {
+        Map<String, PatternNode> nodes = new HashMap<>();
+        lastUpdatedTime = String.valueOf(System.currentTimeMillis());
+        return nodes;
     }
 
-    public void setNodeParent(int level, String nodeId, String parent) {
-
+    public Map<String, PatternNode> getAllLeaves() {
+        Map<String, PatternNode> nodes = new HashMap<>();
+        lastUpdatedTime = String.valueOf(System.currentTimeMillis());
+        return nodes;
     }
 
+    //get All modified nodes since lastupdatedTime
+    public Map<String, PatternNode> getNewNodes() {
+        Map<String, PatternNode> nodes = new HashMap<>();
+        return nodes;
+    }
 
+    //get All modified nodes since lastupdatedTime
+    public Map<String, PatternNode> getNewLeaves() {
+        Map<String, PatternNode> nodes = new HashMap<>();
+        return nodes;
+    }
 
+    public boolean addNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
+        // TODO:
+        // 1. send lastUpdatedTime and nodeinfo to Center
+        // 2. if center return tells that need to synchronize
+        //        synchronize and return false
+        // 3. else return what center returned, true - center added succeed, false - center added failure
+        return true;
+    }
+
+    public boolean updateNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
+        // TODO:
+        return true;
+    }
 }
