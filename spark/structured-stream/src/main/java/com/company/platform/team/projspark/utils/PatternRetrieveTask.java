@@ -1,6 +1,8 @@
 package com.company.platform.team.projspark.utils;
 
 import com.company.platform.team.projspark.data.AppParameters;
+import com.company.platform.team.projspark.data.Constants;
+import com.company.platform.team.projspark.data.PatternForest;
 import com.company.platform.team.projspark.modules.PatternRetriever;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
@@ -28,38 +30,46 @@ public class PatternRetrieveTask implements Runnable {
 
     @Override
     public void run() {
-        try {
-            Configuration conf = new Configuration();
-            if (!StringUtils.isEmpty(appParameters.inputfilter)) {
-                conf.set("file.pattern", StringEscapeUtils.escapeJava(appParameters.inputfilter));
+        for (int i = 0; i < Constants.MAX_PATTERN_LEVEL; i++) {
+            try {
+                Configuration conf = new Configuration();
+                if (!StringUtils.isEmpty(appParameters.inputfilter)) {
+                    conf.set("file.pattern", StringEscapeUtils.escapeJava(appParameters.inputfilter));
+                }
+                conf.set("level", String.valueOf(i));
+                conf.set("level.maxDist",
+                        String.valueOf(1-appParameters.leafSimilarity*(Math.pow(appParameters.similarityDecayFactor, i))));
+
+                Job job = Job.getInstance(conf, "PatternRetrieve");
+                job.setJarByClass(PatternRetriever.class);
+                job.setMapperClass(PatternRetriever.ParentNodeMapper.class);
+                job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
+                job.setReducerClass(PatternRetriever.PatternRetrieveReducer.class);
+                job.setOutputKeyClass(Text.class);
+                //job.setOutputValueClass(IntWritable.class);
+                job.setOutputValueClass(Text.class);
+
+                //TODO: if (i == 0) { set inputDir } else read Nodes from tree
+                Path input = new Path(appParameters.inputDir);
+                System.out.println(input.toString());
+                FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
+                FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
+                //job.setInputFormatClass(TextInputFormat.class);
+
+                // FileOutputFormat.setOutputPath(job, new Path(appParameters.outputDir));
+                // For test
+                FileOutputFormat.setOutputPath(job,
+                        new Path(appParameters.outputDir + "-" + System.currentTimeMillis()));
+                job.waitForCompletion(true);
+                PatternForest.getInstance().saveTreeToFile("./patterntree");
+                System.out.println("Sleeping ...");
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            } catch (ClassNotFoundException cnfe) {
+                cnfe.printStackTrace();
+            } catch (InterruptedException inte) {
+                inte.printStackTrace();
             }
-            Job job = Job.getInstance(conf, "PatternRetrieve");
-            job.setJarByClass(PatternRetriever.class);
-            job.setMapperClass(PatternRetriever.ParentNodeMapper.class);
-            job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
-            job.setReducerClass(PatternRetriever.PatternRetrieveReducer.class);
-            job.setOutputKeyClass(Text.class);
-            //job.setOutputValueClass(IntWritable.class);
-            job.setOutputValueClass(Text.class);
-
-            Path input = new Path(appParameters.inputDir);
-            System.out.println(input.toString());
-            FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
-            FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
-            //job.setInputFormatClass(TextInputFormat.class);
-
-            // FileOutputFormat.setOutputPath(job, new Path(appParameters.outputDir));
-            // For test
-            FileOutputFormat.setOutputPath(job,
-                    new Path(appParameters.outputDir + "-" + System.currentTimeMillis()));
-            job.waitForCompletion(true);
-            System.out.println("Sleeping ...");
-        } catch (IOException ioe) {
-            ioe.printStackTrace();
-        } catch (ClassNotFoundException cnfe) {
-            cnfe.printStackTrace();
-        } catch (InterruptedException inte) {
-            inte.printStackTrace();
         }
     }
 }

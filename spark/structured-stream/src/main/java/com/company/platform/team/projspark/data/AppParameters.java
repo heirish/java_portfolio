@@ -12,4 +12,8 @@ public class AppParameters {
     public String inputDir;
     public String inputfilter;
     public String outputDir;
+
+    public int treeLevel;
+    public double leafSimilarity;
+    public double similarityDecayFactor;
 }

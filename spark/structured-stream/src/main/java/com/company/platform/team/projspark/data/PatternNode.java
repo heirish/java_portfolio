@@ -22,6 +22,11 @@ public class PatternNode {
         this.parentNodeId = "";
     }
 
+    public PatternNode(PatternNode node) {
+       this.representTokens = node.representTokens;
+       this.parentNodeId = node.parentNodeId;
+       this.patternTokens = node.patternTokens;
+    }
 
     public boolean hasParent() {
         return StringUtils.isEmpty(parentNodeId);

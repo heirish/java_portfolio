@@ -38,45 +38,4 @@ public class FastClustering {
 
         return score > minScore ? true: false;
     }
-
-    /**
-     * input:
-     *      tokens
-     *      name, nodeLevel - where to find, find scope
-     *      maxDistance - scope
-     */
-    public static String findCluster(String name, int nodeLevel, List<String> tokens, double maxDistance) {
-        Map<String, PatternNode> clusters = PatternForest.getInstance().getNodes(name, nodeLevel);
-        if (clusters != null) {
-            for (Map.Entry<String, PatternNode> cluster : clusters.entrySet()) {
-                if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
-                    return cluster.getKey();
-                }
-            }
-        }
-
-        //TODO: Add new parent Node, first synchronize
-        // 1. get new Node Id, if success, add new Node,
-        // else synchronize new Nodes and recompute maxDistance, till get the cluster
-        int triedTimes = 0;
-        PatternNode parentNode= new PatternNode(tokens);
-        do {
-            String nodeId = PatternForest.getInstance().addNode(name, nodeLevel, parentNode);
-            if (!StringUtils.isEmpty(nodeId)) {
-                return nodeId;
-            } else {
-                Map<String, PatternNode> newLevelNodes = PatternForest.getInstance().getNodes(name, nodeLevel);
-                MapDifference<String, PatternNode> diff = Maps.difference(clusters, newLevelNodes);
-                for (Map.Entry<String, PatternNode> cluster : diff.entriesOnlyOnRight().entrySet()) {
-                    if (belongsToCluster(tokens, cluster.getValue().getRepresentTokens(), maxDistance)) {
-                        return cluster.getKey();
-                    }
-                    clusters.put(cluster.getKey(), cluster.getValue());
-                }
-                triedTimes++;
-            }
-        } while (triedTimes < Constants.FINDCLUSTER_TOLERANCE_TIMES);
-
-        return "";
-    }
 }

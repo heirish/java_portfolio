@@ -2,6 +2,7 @@ package com.company.platform.team.projspark;
 
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
+import com.company.platform.team.projspark.data.PatternForest;
 import com.company.platform.team.projspark.modules.FastClustering;
 import com.company.platform.team.projspark.preprocess.Preprocessor;
 import com.company.platform.team.projspark.utils.FluentScheduledExecutorService;
@@ -39,6 +40,10 @@ public class StructuredStream{
     public static void main(String[] args) {
         try {
             parseArgs(args);
+            appParameters.leafSimilarity = 0.7;
+            appParameters.similarityDecayFactor = 0.9;
+            appParameters.treeLevel = 10;
+
             if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
                 startSparkWork1();
             } else {
@@ -81,8 +86,8 @@ public class StructuredStream{
                     String body = fields.get(Constants.FIELD_BODY);
                     String projectName = fields.get(Constants.FIELD_PROJECTNAME);
                     List<String> tokens = Preprocessor.transform(body);
-                    String leafId = FastClustering.findCluster(projectName, 0,
-                            tokens, 0.3);
+                    String leafId = PatternForest.getInstance().getParentNodeId(tokens, projectName, 0,
+                            1-appParameters.similarityDecayFactor);
                     long end = System.nanoTime();
                     fields.put(Constants.FIELD_LEAFID, leafId);
 
@@ -113,50 +118,6 @@ public class StructuredStream{
                 //.selectExpr("CAST (patternId as STRING) as patternId", "CAST (bodyTokens as STRING) as bodyTokens")
                 //already been string after mapFunction
                 .select(Constants.FIELD_PATTERNID, Constants.FIELD_PATTERNTOKENS)
-                .writeStream()
-                .format("json")
-                .option("checkpointLocation", "./patternbasecheckpoint")
-                .option("path", "./patternbase")
-                .outputMode("append")
-                .start();
-
-        queryIndex.awaitTermination();
-        queryPatternBase.awaitTermination();
-
-    }
-
-    private static void startSparkWork() throws Exception{
-        SparkSession spark = createSparkSession("StructuredStream");
-
-        //Data input
-        Dataset<Row> df = spark
-                .readStream()
-                .format("kafka")
-                .option("kafka.bootstrap.servers", appParameters.brokers)
-                .option("subscribe", appParameters.topics)
-                // .option("startingOffsets", "latest")
-                .load();
-
-        //processing
-        Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
-        Dataset<String> dfLogWithLeafId = dfLog.map(new MapFunction<String, String>() {
-            @Override
-            public String call(String s) throws Exception {
-                return findCluster(s);
-            }
-        }, Encoders.STRING());
-
-        // Data output downflow to index
-        StreamingQuery queryIndex = dfLogWithLeafId
-                .writeStream()
-                .format("json")
-                .option("checkpointLocation", "./outputcheckpoint")
-                .option("path", "./output")
-                .outputMode("append")
-                .start();
-
-        // Data to pattern retriever;
-        StreamingQuery queryPatternBase= dfLogWithLeafId
                 .writeStream()
                 .format("json")
                 .option("checkpointLocation", "./patternbasecheckpoint")
@@ -201,33 +162,6 @@ public class StructuredStream{
             }
         });
         return spark;
-    }
-
-    private static String findCluster(String log) throws Exception{
-        Map<String, String> fields = gson.fromJson(log, Map.class);
-        if (fields != null && fields.containsKey(Constants.FIELD_BODY)
-                && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
-            long start = System.nanoTime();
-            String body = fields.get(Constants.FIELD_BODY);
-            String projectName = fields.get(Constants.FIELD_PROJECTNAME);
-            String leafId = FastClustering.findCluster(projectName, 0,
-                    Preprocessor.transform(body), 0.3);
-            //TODO:
-            //if (nodeLevel > 0) {
-            //  setParent();
-            //}
-            //
-            long end = System.nanoTime();
-            fields.put(Constants.FIELD_LEAFID, leafId);
-
-            //for Test
-            fields.put("bodyLength", String.format("%s", body.length()));
-            fields.put("processTimeCost",
-                    String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
-            return gson.toJson(fields);
-        } else {
-            return log;
-        }
     }
 
     private static void parseArgs(String[] args) throws Exception {

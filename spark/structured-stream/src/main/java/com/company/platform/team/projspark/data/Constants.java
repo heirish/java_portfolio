@@ -14,4 +14,5 @@ public class Constants {
     public static final double PATTERN_LEAF_MAXDIST = 0.3;
     public static final String PATTERN_DIST_DECAY_TYPE = "exp";
     public static final String PATTERN_NODE_KEY_DELIMITER = "%@%";
+    public static final int MAX_PATTERN_LEVEL = 10;
 }
