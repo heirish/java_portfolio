@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by admin on 2018/6/22.
@@ -76,5 +78,16 @@ public class ListUtilTest {
         for(Map.Entry<String, String> entry:localMap.entrySet()) {
             System.out.println("local key:" + entry.getKey() + ", local value: " + entry.getValue());
         }
+    }
+
+    @Test
+    public void regexTest()
+    {
+        Pattern pattern = Pattern.compile("(.*.json)|(.*/patternoutput-.*/part-.*)");
+        //String path = "/home/heirish/Myproj/structured_stream/patternbase/part-00003-87342fec-4817-4e83-b492-35e13fd05196-c000.json";
+        String path = "/home/heirish/Myproj/structured_stream/patternoutput-0/part-r-00000";
+        Matcher m = pattern.matcher(path);
+        System.out.println("Is path:" + path + " matching "
+                + " ?, " + m.matches());
     }
 }

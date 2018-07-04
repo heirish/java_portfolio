@@ -26,7 +26,19 @@ public final class PatternLevelTree {
         patternNodes = new HashMap<>();
         treeHelper = new PatternTreeHelper();
         Map<String, PatternNode> nodes = treeHelper.getAllNodes();
-        //TODO: split nodes by project+level
+        //split nodes by project+level
+        SortedSet<String> keys = new TreeSet<>(nodes.keySet());
+        String lastProjectLevel = "";
+        Map<String, PatternNode> projectLevelNodes = new HashMap<>();
+        for (String key : keys) {
+            String thisProjectLevelKey = key.substring(0, key.lastIndexOf(Constants.PATTERN_NODE_KEY_DELIMITER));
+            if (!StringUtils.equalsIgnoreCase(lastProjectLevel, thisProjectLevelKey)) {
+                projectLevelNodes = new HashMap<>();
+                lastProjectLevel = thisProjectLevelKey;
+                patternNodes.put(lastProjectLevel, projectLevelNodes);
+            }
+            projectLevelNodes.put(key, nodes.get(key));
+        }
     }
 
     public static PatternLevelTree getInstance() {
@@ -104,7 +116,12 @@ public final class PatternLevelTree {
     public PatternNode getNode(String nodeKey) {
         String projectName = nodeKey.split(Constants.PATTERN_NODE_KEY_DELIMITER)[0];
         String nodeLevel = nodeKey.split(Constants.PATTERN_NODE_KEY_DELIMITER)[1];
-        return new PatternNode(getNodes(projectName, nodeLevel).get(nodeKey));
+        Map<String, PatternNode> nodes = getNodes(projectName, nodeLevel);
+        if (nodes != null && nodes.containsKey(nodeKey)) {
+            return new PatternNode(nodes.get(nodeKey));
+        } else {
+            return null;
+        }
     }
 
     public PatternNode getNode(String projectName, int nodeLevel, String nodeId) {
@@ -112,7 +129,7 @@ public final class PatternLevelTree {
                 projectName, Constants.PATTERN_NODE_KEY_DELIMITER,
                 nodeLevel, Constants.PATTERN_NODE_KEY_DELIMITER,
                 nodeId);
-        return new PatternNode(getNodes(projectName, String.format("%s", nodeLevel)).get(nodeKey));
+        return getNode(nodeKey);
     }
 
     public Map<String, PatternNode> getNodes(String projectName, String nodeLevel) {

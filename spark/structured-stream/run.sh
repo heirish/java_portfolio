@@ -17,5 +17,5 @@ ${jarpackage} -j spark -b localhost:9092 -t test> spark.log
 
 # rm -rf patternoutput-*
 # /home/heirish/apps/hadoop/bin/hadoop jar ${jarpackage} com.company.platform.team.projspark.StructuredStream \
-# -j hadoop -i patternbase -r .*.json \
-# -o patternoutput
+# -j hadoop -i patternbase -r "(.*.json)|(.*/patternoutput-.*/part-.*)" \
+# -o patternoutput > hadoop.log

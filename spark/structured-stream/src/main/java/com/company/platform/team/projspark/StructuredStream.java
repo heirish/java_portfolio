@@ -46,7 +46,7 @@ public class StructuredStream{
             if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
                 startSparkWork1();
             } else {
-                startScheduledHadoopWork(1, 5, TimeUnit.SECONDS);
+                startScheduledHadoopWork(1, 300, TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {
@@ -134,7 +134,6 @@ public class StructuredStream{
         new FluentScheduledExecutorService(1)
                 .scheduleWithFixedDelay(new PatternRetrieveTask(appParameters),
                         initialDelay, period, unit);
-
     }
 
 

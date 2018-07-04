@@ -4,6 +4,7 @@ import com.company.platform.team.projspark.modules.FastClustering;
 import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.FileWriter;
@@ -23,6 +24,7 @@ public final class PatternLeaves {
     private Map<String, Map<String, PatternNode>> patternNodes;
     private PatternTreeHelper treeHelper;
     private static PatternLeaves forest = new PatternLeaves();
+    private static final Gson gson = new Gson();
 
     private PatternLeaves() {
         //TODO:recover from local checkpoint
@@ -86,6 +88,7 @@ public final class PatternLeaves {
                     nodes.put(nodeKey, node);
                     patternNodes.put(projectName, nodes);
                 }
+                saveToFile("./patternLeaves");
                 return nodeKey;
             }
         } catch (Exception e) {
@@ -124,10 +127,28 @@ public final class PatternLeaves {
         return stringBuilder.toString();
     }
 
+    private String toJsonString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Map.Entry<String, Map<String, PatternNode>> entry : patternNodes.entrySet()) {
+            for (Map.Entry<String, PatternNode> entryNode : entry.getValue().entrySet()) {
+                Map<String, String> jsonItems = new HashMap<>();
+                jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey());
+                jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
+                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
+                jsonItems.put(Constants.FIELD_PATTERNTOKENS,
+                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
+                stringBuilder.append(gson.toJson(jsonItems));
+                stringBuilder.append(System.getProperty("line.separator"));
+            }
+        }
+        return stringBuilder.toString();
+    }
+
+
     public void saveToFile(String fileName) {
         try {
             FileWriter fw = new FileWriter(fileName);
-            fw.write(PatternLeaves.getInstance().toString());
+            fw.write(PatternLeaves.getInstance().toJsonString());
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();

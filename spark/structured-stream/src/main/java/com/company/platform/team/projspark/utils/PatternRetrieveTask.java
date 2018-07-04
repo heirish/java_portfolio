@@ -4,15 +4,18 @@ import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternLevelTree;
 import com.company.platform.team.projspark.modules.PatternRetriever;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -30,35 +33,51 @@ public class PatternRetrieveTask implements Runnable {
 
     @Override
     public void run() {
+        //for Test
+        String lastOutput = appParameters.outputDir + "-0";
         //or by project, by level
         for (int i = 0; i < Constants.MAX_PATTERN_LEVEL; i++) {
+        //for (int i = 0; i < 2; i++) {
             try {
                 Configuration conf = new Configuration();
                 if (!StringUtils.isEmpty(appParameters.inputfilter)) {
                     conf.set("file.pattern", StringEscapeUtils.escapeJava(appParameters.inputfilter));
                 }
                 conf.set("level", String.valueOf(i));
-                conf.set("level.maxDist",
-                        String.valueOf(1-appParameters.leafSimilarity*(Math.pow(appParameters.similarityDecayFactor, i))));
+                double maxDist = 1-appParameters.leafSimilarity*(Math.pow(appParameters.similarityDecayFactor, i));
+                conf.set("level.maxDist", String.valueOf(maxDist));
+                System.out.println(String.format("level :%s, maxDists: %s", i, maxDist));
 
                 Job job = Job.getInstance(conf, "PatternRetrieve");
                 job.setJarByClass(PatternRetriever.class);
                 job.setMapperClass(PatternRetriever.ParentNodeMapper.class);
-                job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
+                job.setMapOutputKeyClass(Text.class);
+                job.setMapOutputValueClass(Text.class);
+                //job.setCombinerClass(PatternRetriever.PatternRetrieveReducer.class);
                 job.setReducerClass(PatternRetriever.PatternRetrieveReducer.class);
-                job.setOutputKeyClass(Text.class);
-                //job.setOutputValueClass(IntWritable.class);
+                job.setOutputKeyClass(NullWritable.class);
                 job.setOutputValueClass(Text.class);
 
                 //TODO: if (i == 0) { set inputDir } else read Nodes from tree
-                Path input = new Path(appParameters.inputDir);
-                System.out.println(input.toString());
                 FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
-                FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
+                if (i == 0) {
+                    FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
+                } else {
+                    FileInputFormat.addInputPath(job,
+                            new Path(appParameters.outputDir + "-" + String.valueOf(i-1)));
+                }
 
                 // For test
-                FileOutputFormat.setOutputPath(job,
-                        new Path(appParameters.outputDir + "-" + System.currentTimeMillis()));
+                //first delete if outputdir exists
+                String outputPath = appParameters.outputDir + "-" + String.valueOf(i);
+                try {
+                    File file = new File(outputPath);
+                    FileUtils.deleteDirectory(file);
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                }
+                FileOutputFormat.setOutputPath(job, new Path(outputPath));
+
                 job.waitForCompletion(true);
                 //TODO: if (i==0) { remove inputDir}
                 PatternLevelTree.getInstance().saveTreeToFile("./patterntree");
