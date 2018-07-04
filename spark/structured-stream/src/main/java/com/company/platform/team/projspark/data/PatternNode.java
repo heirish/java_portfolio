@@ -31,7 +31,7 @@ public class PatternNode {
     }
 
     public boolean hasParent() {
-        return StringUtils.isEmpty(parentNodeId);
+        return !StringUtils.isEmpty(parentNodeId);
     }
 
     public void setParent(String nodeId){

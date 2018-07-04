@@ -98,6 +98,7 @@ public final class PatternLevelTree {
             if (treeHelper.addNodesToCenter(projectName, nodeLevel, nodeId, node)) {
                 String levelKey = String.format("%s%s%s", projectName, Constants.PATTERN_NODE_KEY_DELIMITER, nodeLevel);
                 String nodeKey = String.format("%s%s%s", levelKey, Constants.PATTERN_NODE_KEY_DELIMITER, nodeId);
+                System.out.println("add node: " + nodeKey);
                 if (patternNodes.containsKey(levelKey)) {
                     patternNodes.get(levelKey).put(nodeKey, node);
                 } else {
