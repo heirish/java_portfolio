@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.spark.sql.functions.col;
+
 /**
  * Created by admin on 2018/6/13.
  * spark-submit --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.3.1 \
@@ -46,7 +48,7 @@ public class StructuredStream{
             if (StringUtils.equalsIgnoreCase(appParameters.jobType, "spark")) {
                 startSparkWork1();
             } else {
-                startScheduledHadoopWork(1, 300, TimeUnit.SECONDS);
+                startScheduledHadoopWork(1, 120, TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {
@@ -71,6 +73,7 @@ public class StructuredStream{
         //processing
         Dataset<String> dfLog = df.selectExpr("CAST(value as STRING)").as(Encoders.STRING());
         List<StructField> columns = new ArrayList<>();
+        columns.add(DataTypes.createStructField("projectName", DataTypes.StringType, false));
         columns.add(DataTypes.createStructField("log_content", DataTypes.StringType, false));
         columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNID, DataTypes.StringType, true));
         columns.add(DataTypes.createStructField(Constants.FIELD_PATTERNTOKENS, DataTypes.StringType, true));
@@ -79,11 +82,10 @@ public class StructuredStream{
             @Override
             public Row call(String s) throws Exception {
                 Map<String, String> fields = gson.fromJson(s, Map.class);
-                if (fields != null && fields.containsKey(Constants.FIELD_BODY)
-                        && fields.containsKey(Constants.FIELD_PROJECTNAME)) {
+                String projectName = fields.get(Constants.FIELD_PROJECTNAME);
+                if (fields != null && fields.containsKey(Constants.FIELD_BODY)) {
                     long start = System.nanoTime();
                     String body = fields.get(Constants.FIELD_BODY);
-                    String projectName = fields.get(Constants.FIELD_PROJECTNAME);
                     List<String> tokens = Preprocessor.transform(body);
                     String leafId = PatternLeaves.getInstance().getParentNodeId(tokens, projectName,
                             1-appParameters.similarityDecayFactor);
@@ -94,26 +96,28 @@ public class StructuredStream{
                     fields.put("bodyLength", String.format("%s", body.length()));
                     fields.put("processTimeCost",
                             String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
-                    return RowFactory.create(gson.toJson(fields),
+                    return RowFactory.create(projectName, gson.toJson(fields),
                             leafId, String.join(Constants.PATTERN_NODE_KEY_DELIMITER, tokens));
                 } else {
-                    return RowFactory.create(s, "", "");
+                    return RowFactory.create(projectName, s, "", "");
                 }
             }
         }, RowEncoder.apply(structType));
 
         // Data output downflow to index
-        StreamingQuery queryIndex = dfLogWithLeafId
-                .select("log_content")
-                .writeStream()
-                .format("json")
-                .option("checkpointLocation", "./outputcheckpoint")
-                .option("path", "./output")
-                .outputMode("append")
-                .start();
+        //StreamingQuery queryIndex = dfLogWithLeafId
+        //        .filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
+        //        .select("projectName", "log_content")
+        //        .writeStream()
+        //        .format("json")
+        //        .option("checkpointLocation", "./outputcheckpoint")
+        //        .option("path", "./output")
+        //        .outputMode("append")
+        //        .start();
 
         // Data to pattern retriever;
         StreamingQuery queryPatternBase= dfLogWithLeafId
+                .filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
                 //.selectExpr("CAST (patternId as STRING) as patternId", "CAST (bodyTokens as STRING) as bodyTokens")
                 //already been string after mapFunction
                 .select(Constants.FIELD_PATTERNID, Constants.FIELD_PATTERNTOKENS)
@@ -124,7 +128,7 @@ public class StructuredStream{
                 .outputMode("append")
                 .start();
 
-        queryIndex.awaitTermination();
+        //queryIndex.awaitTermination();
         queryPatternBase.awaitTermination();
 
     }

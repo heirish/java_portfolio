@@ -33,8 +33,6 @@ public class PatternRetrieveTask implements Runnable {
 
     @Override
     public void run() {
-        //for Test
-        String lastOutput = appParameters.outputDir + "-0";
         //or by project, by level
         for (int i = 0; i < Constants.MAX_PATTERN_LEVEL; i++) {
         //for (int i = 0; i < 2; i++) {
@@ -60,16 +58,19 @@ public class PatternRetrieveTask implements Runnable {
 
                 //TODO: if (i == 0) { set inputDir } else read Nodes from tree
                 FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
+                String inputPath = appParameters.outputDir + "-" + String.valueOf(i);
                 if (i == 0) {
-                    FileInputFormat.addInputPath(job, new Path(appParameters.inputDir));
-                } else {
-                    FileInputFormat.addInputPath(job,
-                            new Path(appParameters.outputDir + "-" + String.valueOf(i-1)));
+                    //There is no new coming files
+                    if (CommonUtils.moveFilesAlreadyCompleted(appParameters.inputDir,
+                            inputPath, "(.*.json)|(.*.crc)") == 0) {
+                        break;
+                    }
                 }
+                FileInputFormat.addInputPath(job, new Path(inputPath));
 
                 // For test
                 //first delete if outputdir exists
-                String outputPath = appParameters.outputDir + "-" + String.valueOf(i);
+                String outputPath = appParameters.outputDir + "-" + String.valueOf(i+1);
                 try {
                     File file = new File(outputPath);
                     FileUtils.deleteDirectory(file);
@@ -79,8 +80,11 @@ public class PatternRetrieveTask implements Runnable {
                 FileOutputFormat.setOutputPath(job, new Path(outputPath));
 
                 job.waitForCompletion(true);
-                //TODO: if (i==0) { remove inputDir}
-                PatternLevelTree.getInstance().saveTreeToFile("./patterntree");
+                //for test
+                if (i==0) {
+                    FileUtils.deleteDirectory(new File(inputPath));
+                }
+                //TODO:synchronize pattern tree to database
                 System.out.println("Sleeping ...");
             } catch (IOException ioe) {
                 ioe.printStackTrace();
@@ -90,5 +94,7 @@ public class PatternRetrieveTask implements Runnable {
                 inte.printStackTrace();
             }
         }
+        PatternLevelTree.getInstance().saveTreeToFile("./visualpatterntree");
+        PatternLevelTree.getInstance().backupTree("./patterntree");
     }
 }

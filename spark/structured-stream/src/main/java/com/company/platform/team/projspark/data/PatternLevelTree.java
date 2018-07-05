@@ -4,6 +4,7 @@ import com.company.platform.team.projspark.modules.FastClustering;
 import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 
 import java.io.FileWriter;
@@ -20,6 +21,7 @@ public final class PatternLevelTree {
     private Map<String, Map<String, PatternNode>> patternNodes;
     private PatternTreeHelper treeHelper;
     private static PatternLevelTree forest = new PatternLevelTree();
+    private static final Gson gson = new Gson();
 
     private PatternLevelTree() {
         //TODO:recover from local checkpoint
@@ -155,15 +157,70 @@ public final class PatternLevelTree {
         return nodes;
     }
 
+    public Set<String> getAllProjectsName() {
+       Set<String> projectList = new HashSet<>();
+       for (String key : patternNodes.keySet()) {
+           String[] keyItems = key.split(Constants.PATTERN_NODE_KEY_DELIMITER);
+           System.out.println(Arrays.toString(keyItems));
+           if (keyItems.length == 2) {
+               projectList.add(keyItems[0]);
+           }
+       }
+       return projectList;
+    }
+
+    public int getProjectMaxLevel(String name) {
+        int maxLevel = -1;
+        for (String key : patternNodes.keySet()) {
+            String[] keyItems = key.split(Constants.PATTERN_NODE_KEY_DELIMITER);
+            if (keyItems.length == 2 && Integer.parseInt(keyItems[1]) > maxLevel) {
+                int level = Integer.parseInt(keyItems[1]);
+                maxLevel = level > maxLevel ? level : maxLevel;
+            }
+        }
+        return maxLevel;
+    }
+
     public String visualize() {
-       return "";
+        StringBuilder stringBuilder = new StringBuilder();
+        Set<String> projectNames = getAllProjectsName();
+        for (String name : projectNames) {
+            System.out.println(name);
+            stringBuilder.append(visualize(name));
+        }
+        return stringBuilder.toString();
     }
 
     public String visualize(String name) {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(String.format("projectName: %s:", ""));
-        stringBuilder.append(System.getProperty("line.separator"));
-        return "";
+        VisualTreeNode root = new VisualTreeNode("root", name);
+        Map<String, PatternNode> nodes;
+        int maxLevel = getProjectMaxLevel(name);
+        if (maxLevel < 0) {
+            return "";
+        }
+        for (int i=maxLevel; i>=0; i--) {
+            nodes = getNodes(name, String.valueOf(i));
+            if (nodes == null) {
+                continue;
+            }
+            System.out.println(String.format("found %s nodes for level %s.", nodes.size(), i));
+            for (Map.Entry<String, PatternNode> entry : nodes.entrySet()) {
+                String patternString = String.join("", entry.getValue().getPatternTokens());
+                //if nodes is not the highest level and don't have parent, drop it
+                VisualTreeNode parent = null;
+                if (i == maxLevel) {
+                    parent = root;
+                } else if (entry.getValue().hasParent()) {
+                    parent = root.getNode(entry.getValue().getParentId());
+                }
+                if (parent != null) {
+                    parent.addChild(new VisualTreeNode(entry.getKey(), patternString));
+                } else {
+                    System.out.println("not found node " + entry.getKey() + "'s parent in visual tree or it has not parent");
+                }
+            }
+        }
+        return root.visualize();
     }
 
     public String toString() {
@@ -182,7 +239,34 @@ public final class PatternLevelTree {
     public void saveTreeToFile(String fileName) {
         try {
             FileWriter fw = new FileWriter(fileName);
-            fw.write(PatternLevelTree.getInstance().toString());
+            String treeString = visualize();
+            System.out.println(treeString);
+            fw.write(treeString);
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void backupTree(String fileName) {
+        try {
+            FileWriter fw = new FileWriter(fileName);
+            for (Map.Entry<String, Map<String, PatternNode>> entry : patternNodes.entrySet()) {
+                for (Map.Entry<String, PatternNode> entryNode : entry.getValue().entrySet()) {
+                    Map<String, String> jsonItems = new HashMap<>();
+                    jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey());
+                    jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
+                            String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
+                    jsonItems.put(Constants.FIELD_PATTERNTOKENS,
+                            String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
+                    jsonItems.put("parentId", entryNode.getValue().getParentId());
+                    try {
+                        fw.write(gson.toJson(jsonItems) + System.getProperty("line.separator"));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();

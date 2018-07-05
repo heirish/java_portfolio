@@ -28,6 +28,7 @@ public class PatternRetriever {
     private static final Logger logger = Logger.getLogger("");;
 
     // https://stackoverflow.com/questions/11784729/hadoop-java-lang-classcastexception-org-apache-hadoop-io-longwritable-cannot
+    // input current tokens and parentid
     public static class ParentNodeMapper
             //extends Mapper<Text, Text, Text, Text> {
             extends Mapper<Object, Text, Text, Text> {
@@ -47,6 +48,7 @@ public class PatternRetriever {
         }
     }
 
+    //output parent token and parent's parentid
     public static class PatternRetrieveReducer
             extends Reducer<Text, Text, NullWritable, Text> {
         //private Map<String, PatternNode> parentNodes;
@@ -84,13 +86,16 @@ public class PatternRetriever {
                 //update the tree node(parent Id and pattern) by key
                 PatternLevelTree.getInstance().updateNode(projectName, nodeLevel, nodeId, node);
 
+                //For test
+                String parentKey = node.getParentId();
+                PatternNode parentNode = PatternLevelTree.getInstance().getNode(node.getParentId());
                 Text reduceOutValue = new Text();
                 Map<String, String> jsonItems = new HashMap<>();
-                jsonItems.put(Constants.FIELD_PATTERNID, key.toString());
+                jsonItems.put(Constants.FIELD_PATTERNID, parentKey);
                 jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, node.getRepresentTokens()));
+                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, node.getPatternTokens()));
+                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getPatternTokens()));
                 reduceOutValue.set(gson.toJson(jsonItems));
                 context.write(NullWritable.get(), reduceOutValue);
             } catch (Exception e) {

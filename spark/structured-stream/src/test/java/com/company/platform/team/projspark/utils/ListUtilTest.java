@@ -1,9 +1,12 @@
 package com.company.platform.team.projspark.utils;
 
 import com.company.platform.team.projspark.data.Constants;
+import com.company.platform.team.projspark.data.PatternLevelTree;
+import com.company.platform.team.projspark.data.PatternNode;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -89,5 +92,39 @@ public class ListUtilTest {
         Matcher m = pattern.matcher(path);
         System.out.println("Is path:" + path + " matching "
                 + " ?, " + m.matches());
+    }
+
+    @Test
+    public void fileLastModifiedTest() {
+        //on linux, the returned long value's last three digits are 0
+        File file = new File("./");
+        System.out.println(file.lastModified());
+    }
+
+    @Test
+    public void visualizeTreeTest() {
+        //System.out.println(PatternLevelTree.getInstance().visualize("nelo2-monitoring-alpha"));
+        //System.out.println(PatternLevelTree.getInstance().visualize());
+        PatternLevelTree.getInstance().saveTreeToFile("./visualpatterntree");
+        PatternLevelTree.getInstance().backupTree("./patterntree");
+    }
+
+    @Test
+    public void updateNodeParentTest() {
+        try {
+            PatternNode node = PatternLevelTree.getInstance()
+                    .getNode("syslog", 0, "79c6e45827a946388b3a7e3199474d96");
+            if (!node.hasParent()) {
+                String parentId = PatternLevelTree.getInstance()
+                        .getParentNodeId(node.getPatternTokens(), "syslog", 1, 0.4);
+                node.setParent(parentId);
+            }
+            PatternLevelTree.getInstance().updateNode("syslog", 0,
+                    "79c6e45827a946388b3a7e3199474d96", node);
+            System.out.println(PatternLevelTree.getInstance().visualize("syslog"));
+            //System.out.println(PatternLevelTree.getInstance().toString());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

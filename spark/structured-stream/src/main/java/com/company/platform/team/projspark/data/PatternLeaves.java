@@ -106,13 +106,6 @@ public final class PatternLeaves {
         return nodes;
     }
 
-    public String visualize(String name) {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append(String.format("projectName: %s:", ""));
-        stringBuilder.append(System.getProperty("line.separator"));
-        return "";
-    }
-
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
         for (Map.Entry<String, Map<String, PatternNode>> entry : patternNodes.entrySet()) {
@@ -137,6 +130,7 @@ public final class PatternLeaves {
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
+                jsonItems.put("parentId", entryNode.getValue().getParentId());
                 stringBuilder.append(gson.toJson(jsonItems));
                 stringBuilder.append(System.getProperty("line.separator"));
             }

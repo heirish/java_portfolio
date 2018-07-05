@@ -38,6 +38,10 @@ public class PatternNode {
         this.parentNodeId = nodeId;
     }
 
+    public String getParentId() {
+        return this.parentNodeId;
+    }
+
     public List<String> getRepresentTokens(){
         return representTokens;
     }
