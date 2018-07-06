@@ -4,6 +4,7 @@ import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternNode;
 import com.company.platform.team.projspark.data.PatternNodeKey;
 import com.google.gson.Gson;
+import org.apache.commons.lang.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -23,8 +24,8 @@ public class PatternTreeHelper {
     public Map<PatternNodeKey, PatternNode> getAllNodes() {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO:read from all level directory
-        //String file = "./patternLeaves";
-        String file = "./patterntree";
+        String file = "./patternLeaves";
+        //String file = "./patterntree";
         try (BufferedReader br = new BufferedReader(new FileReader(file))){
             String line;
             while ((line = br.readLine()) != null) {
@@ -32,17 +33,19 @@ public class PatternTreeHelper {
                     Map<String, String> fields = gson.fromJson(line, Map.class);
                     PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
                     //TODO:parentId is null
-                    PatternNodeKey parentKey = PatternNodeKey.fromString(fields.get("parentId"));
                     List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
                             .split(Constants.PATTERN_NODE_KEY_DELIMITER));
                     List<String> representTokens = Arrays.asList(fields.get(Constants.FIELD_REPRESENTTOKENS)
                             .split(Constants.PATTERN_NODE_KEY_DELIMITER));
                     PatternNode node = new PatternNode(representTokens);
                     node.updatePatternTokens(patternTokens);
-                    node.setParent(parentKey);
+                    String parentKeyString = fields.get("parentId");
+                    if (!StringUtils.isEmpty(parentKeyString)) {
+                       node.setParent(PatternNodeKey.fromString(parentKeyString));
+                    }
                     nodes.put(key, node);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    //e.printStackTrace();
                 }
             }
         } catch (Exception e) {

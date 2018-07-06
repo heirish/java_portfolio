@@ -114,15 +114,18 @@ public class ListUtilTest {
     public void updateNodeParentTest() {
         try {
             String projectName = "syslog";
-            PatternNode node = PatternLevelTree.getInstance()
-                    .getNode(new PatternNodeKey(projectName, 0, "79c6e45827a946388b3a7e3199474d96"));
+            String nodeKeyString = String.format("%s|@|%s|@|%s|@|%s", projectName, 0,
+                "79c6e45827a946388b3a7e3199474d96");
+            PatternNodeKey nodeKey = PatternNodeKey.fromString(nodeKeyString);
+            PatternNode node = PatternLevelTree.getInstance().getNode(nodeKey);
             if (!node.hasParent()) {
                 PatternNodeKey parentKey = PatternLevelTree.getInstance()
-                        .getParentNodeId(node.getPatternTokens(), projectName, 1, 0.4);
+                        .getParentNodeId(node.getPatternTokens(),
+                                nodeKey.getProjectName(),
+                                nodeKey.getLevel()+1, 0.4);
                 node.setParent(parentKey);
             }
-            PatternLevelTree.getInstance().updateNode(new PatternNodeKey(projectName, 0,
-                    "79c6e45827a946388b3a7e3199474d96"), node);
+            PatternLevelTree.getInstance().updateNode(nodeKey, node);
             System.out.println(PatternLevelTree.getInstance().visualize(projectName));
             //System.out.println(PatternLevelTree.getInstance().toString());
         } catch (Exception e) {

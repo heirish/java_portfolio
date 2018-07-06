@@ -8,7 +8,7 @@ import org.apache.commons.lang.StringUtils;
 public class PatternLevelKey {
     private String projectName;
     private int level;
-    private static final String DELIMITER = "%@%";
+    private static final String DELIMITER = "#@#";
 
     public PatternLevelKey(String projectName, int level) {
         this.projectName = projectName;
@@ -55,10 +55,14 @@ public class PatternLevelKey {
         return this.projectName;
     }
 
+    protected static String getDelimiter() {
+        return DELIMITER;
+    }
+
     public String toString() {
-        return String.format("%s%s%s%s%s",
+        return String.format("%s%s%s",
                 this.projectName, DELIMITER,
-                this.level, DELIMITER);
+                this.level);
     }
 
     public static PatternLevelKey fromString(String key) throws Exception{
@@ -66,7 +70,7 @@ public class PatternLevelKey {
         try {
             return new PatternLevelKey(items[0], Integer.parseInt(items[1]));
         } catch (Exception e) {
-            throw new Exception("invalid key");
+            throw new Exception("invalid node key", e);
         }
     }
 }

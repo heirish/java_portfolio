@@ -3,6 +3,7 @@ package com.company.platform.team.projspark;
 import com.company.platform.team.projspark.data.AppParameters;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternLeaves;
+import com.company.platform.team.projspark.data.PatternNodeKey;
 import com.company.platform.team.projspark.preprocess.Preprocessor;
 import com.company.platform.team.projspark.utils.FluentScheduledExecutorService;
 import com.company.platform.team.projspark.utils.PatternRetrieveTask;
@@ -87,8 +88,9 @@ public class StructuredStream{
                     long start = System.nanoTime();
                     String body = fields.get(Constants.FIELD_BODY);
                     List<String> tokens = Preprocessor.transform(body);
-                    String leafId = PatternLeaves.getInstance().getParentNodeId(tokens, projectName,
-                            1-appParameters.similarityDecayFactor).toString();
+                    PatternNodeKey nodeKey = PatternLeaves.getInstance().getParentNodeId(tokens, projectName,
+                            1-appParameters.similarityDecayFactor);
+                    String leafId = nodeKey != null ? nodeKey.toString() : "";
                     long end = System.nanoTime();
                     fields.put(Constants.FIELD_LEAFID, leafId);
 
@@ -117,7 +119,8 @@ public class StructuredStream{
 
         // Data to pattern retriever;
         StreamingQuery queryPatternBase= dfLogWithLeafId
-                .filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
+                //.filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
+                .filter(col("projectName").eqNullSafe("test"))
                 //.selectExpr("CAST (patternId as STRING) as patternId", "CAST (bodyTokens as STRING) as bodyTokens")
                 //already been string after mapFunction
                 .select(Constants.FIELD_PATTERNID, Constants.FIELD_PATTERNTOKENS)

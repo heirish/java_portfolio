@@ -45,8 +45,8 @@ public class NeedlemanWunschAlignerTest {
         try {
             int[][] matrix = aligner.createScoreMatrix(tokens1, tokens2);
             List<String> alignedTokens = aligner.traceBack(tokens1, tokens2, matrix);
-            logger.info(alignedTokens.toString());
-            logger.info(String.join("", alignedTokens));
+            System.out.println(alignedTokens.toString());
+            System.out.println(String.join("", alignedTokens));
         } catch (Exception e) {
             e.printStackTrace();
         }

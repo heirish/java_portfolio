@@ -5,7 +5,6 @@ import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
-import org.apache.commons.lang.StringUtils;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -77,7 +76,7 @@ public final class PatternLeaves {
     public PatternNodeKey addLeaf(String projectName, PatternNode node) {
         try {
             String nodeId = UUID.randomUUID().toString().replace("-", "");
-            PatternNodeKey nodeKey = new PatternNodeKey(projectName, 0, nodeId);
+            PatternNodeKey nodeKey = new PatternNodeKey(projectName, 0);
             if (treeHelper.addNodesToCenter(nodeKey, node)) {
                 if (patternNodes.containsKey(nodeKey.getProjectName())) {
                     patternNodes.get(projectName).put(nodeKey, node);
@@ -128,7 +127,11 @@ public final class PatternLeaves {
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
-                jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
+                if (entryNode.getValue().hasParent()) {
+                    jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
+                } else {
+                    jsonItems.put("parentId", "");
+                }
                 stringBuilder.append(gson.toJson(jsonItems));
                 stringBuilder.append(System.getProperty("line.separator"));
             }

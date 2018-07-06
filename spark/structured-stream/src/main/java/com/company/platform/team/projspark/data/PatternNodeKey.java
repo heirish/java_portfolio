@@ -2,17 +2,17 @@ package com.company.platform.team.projspark.data;
 import org.apache.commons.lang.StringUtils;
 
 import java.util.Arrays;
+import java.util.UUID;
 
 /**
  * Created by admin on 2018/7/6.
  */
 public class PatternNodeKey extends PatternLevelKey implements Comparable<PatternNodeKey>{
-    private String Id;
-    private static final String DELIMITER = "%@%";
+    private String id;
 
-    public PatternNodeKey(String projectName, int level, String Id) {
+    public PatternNodeKey(String projectName, int level) {
         super(projectName, level);
-        this.Id = Id;
+        this.id= UUID.randomUUID().toString().replace("-", "");
     }
 
     @Override
@@ -24,7 +24,7 @@ public class PatternNodeKey extends PatternLevelKey implements Comparable<Patter
         if (this.getClass() != o.getClass())
             return false;
         PatternNodeKey nodeKey= (PatternNodeKey)o;
-        return (super.equals(o) && StringUtils.equals(this.Id, nodeKey.Id));
+        return (super.equals(o) && StringUtils.equals(this.id, nodeKey.id));
     }
 
     //https://stackoverflow.com/questions/113511/best-implementation-for-hashcode-method
@@ -32,8 +32,8 @@ public class PatternNodeKey extends PatternLevelKey implements Comparable<Patter
     public int hashCode()
     {
         int hash = super.hashCode();
-        if (this.Id != null) {
-            hash += 31 * this.Id.hashCode();
+        if (this.id != null) {
+            hash += 31 * this.id.hashCode();
         }
         return hash;
     }
@@ -50,11 +50,15 @@ public class PatternNodeKey extends PatternLevelKey implements Comparable<Patter
             return num;
         }
 
-        return this.Id.compareTo(o.Id);
+        return this.id.compareTo(o.id);
+    }
+
+    private void setId(String id) {
+        this.id = id;
     }
 
     public String getId(){
-        return Id;
+        return id;
     }
 
     public PatternLevelKey getLevelKey() {
@@ -63,18 +67,18 @@ public class PatternNodeKey extends PatternLevelKey implements Comparable<Patter
 
     public String toString() {
         return String.format("%s%s%s",
-                super.toString(), DELIMITER, this.Id);
+                super.toString(), getDelimiter(), this.id);
     }
 
     public static PatternNodeKey fromString(String key) throws Exception{
-        String[] items = key.split(DELIMITER);
+        String[] items = key.split(getDelimiter());
         System.out.println(Arrays.toString(items));
         try {
-            return new PatternNodeKey(items[0], Integer.parseInt(items[1]), items[2]);
+            PatternNodeKey nodeKey = new PatternNodeKey(items[0], Integer.parseInt(items[1]));
+            nodeKey.setId(items[2]);
+            return nodeKey;
         } catch (Exception e) {
-            e.printStackTrace();
-            //throw new Exception("invalid key");
+            throw new Exception("invalid key", e);
         }
-        return null;
     }
 }

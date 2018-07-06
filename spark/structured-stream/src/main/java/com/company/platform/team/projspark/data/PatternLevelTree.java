@@ -27,18 +27,24 @@ public final class PatternLevelTree {
         //TODO:recover from local checkpoint
         patternNodes = new HashMap<>();
         treeHelper = new PatternTreeHelper();
-        Map<PatternNodeKey, PatternNode> nodes = treeHelper.getAllNodes();
-        //split nodes by LevelKey
-        SortedSet<PatternNodeKey> keys = new TreeSet<>(nodes.keySet());
-        PatternLevelKey lastLevelKey = null;
-        Map<PatternNodeKey, PatternNode> projectLevelNodes = new HashMap<>();
-        for (PatternNodeKey key : keys) {
-            if (!key.getLevelKey().equals(lastLevelKey) && lastLevelKey != null) {
-                patternNodes.put(lastLevelKey, projectLevelNodes);
-                lastLevelKey = key;
-                projectLevelNodes = new HashMap<>();
+        try {
+            Map<PatternNodeKey, PatternNode> nodes = treeHelper.getAllNodes();
+            //split nodes by LevelKey
+            SortedSet<PatternNodeKey> keys = new TreeSet<>(nodes.keySet());
+            PatternLevelKey lastLevelKey = null;
+            Map<PatternNodeKey, PatternNode> projectLevelNodes = new HashMap<>();
+            for (PatternNodeKey key : keys) {
+                if (!key.getLevelKey().equals(lastLevelKey) && lastLevelKey != null) {
+                    patternNodes.put(lastLevelKey, projectLevelNodes);
+                    lastLevelKey = key;
+                    projectLevelNodes = new HashMap<>();
+                }
+                projectLevelNodes.put(key, nodes.get(key));
             }
-            projectLevelNodes.put(key, nodes.get(key));
+            //The last
+            patternNodes.put(keys.last().getLevelKey(), projectLevelNodes);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -95,8 +101,7 @@ public final class PatternLevelTree {
 
     public PatternNodeKey addNode(String projectName, int nodeLevel, PatternNode node) {
         try {
-            String nodeId = UUID.randomUUID().toString().replace("-", "");
-            PatternNodeKey nodeKey = new PatternNodeKey(projectName, nodeLevel, nodeId);
+            PatternNodeKey nodeKey = new PatternNodeKey(projectName, nodeLevel);
             if (treeHelper.addNodesToCenter(nodeKey, node)) {
                 PatternLevelKey levelKey = nodeKey.getLevelKey();
                 System.out.println("add node: " + nodeKey.toString());
@@ -240,7 +245,11 @@ public final class PatternLevelTree {
                             String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
                     jsonItems.put(Constants.FIELD_PATTERNTOKENS,
                             String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
-                    jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
+                    if (entryNode.getValue().hasParent()) {
+                        jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
+                    } else {
+                        jsonItems.put("parentId", "");
+                    }
                     try {
                         fw.write(gson.toJson(jsonItems) + System.getProperty("line.separator"));
                     } catch (IOException e) {
