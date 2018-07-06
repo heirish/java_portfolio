@@ -88,7 +88,7 @@ public class StructuredStream{
                     String body = fields.get(Constants.FIELD_BODY);
                     List<String> tokens = Preprocessor.transform(body);
                     String leafId = PatternLeaves.getInstance().getParentNodeId(tokens, projectName,
-                            1-appParameters.similarityDecayFactor);
+                            1-appParameters.similarityDecayFactor).toString();
                     long end = System.nanoTime();
                     fields.put(Constants.FIELD_LEAFID, leafId);
 

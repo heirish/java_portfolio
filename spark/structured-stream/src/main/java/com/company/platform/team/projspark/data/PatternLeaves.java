@@ -21,7 +21,7 @@ import java.util.UUID;
 // TODO:thread safe
 public final class PatternLeaves {
     //Map<project, Map<project-level-nodeid, PatternNode>>
-    private Map<String, Map<String, PatternNode>> patternNodes;
+    private Map<String, Map<PatternNodeKey, PatternNode>> patternNodes;
     private PatternTreeHelper treeHelper;
     private static PatternLeaves forest = new PatternLeaves();
     private static final Gson gson = new Gson();
@@ -30,7 +30,7 @@ public final class PatternLeaves {
         //TODO:recover from local checkpoint
         patternNodes = new HashMap<>();
         treeHelper = new PatternTreeHelper();
-        Map<String, PatternNode> nodes = treeHelper.getAllLeaves();
+        Map<PatternNodeKey, PatternNode> nodes = treeHelper.getAllLeaves();
         //TODO: split nodes by project
     }
 
@@ -39,10 +39,10 @@ public final class PatternLeaves {
     }
 
     //TODO:input a distance function
-    public String getParentNodeId(List<String> tokens, String projectName, double maxDistance) {
-        Map<String, PatternNode> levelNodes = getNodes(projectName);
+    public PatternNodeKey getParentNodeId(List<String> tokens, String projectName, double maxDistance) {
+        Map<PatternNodeKey, PatternNode> levelNodes = getNodes(projectName);
         if (levelNodes != null) {
-            for (Map.Entry<String, PatternNode> node: levelNodes.entrySet()) {
+            for (Map.Entry<PatternNodeKey, PatternNode> node: levelNodes.entrySet()) {
                 if (FastClustering.belongsToCluster(tokens,
                         node.getValue().getRepresentTokens(), maxDistance)) {
                     return node.getKey();
@@ -53,13 +53,13 @@ public final class PatternLeaves {
         int triedTimes = 0;
         PatternNode parentNode= new PatternNode(tokens);
         do {
-            String nodeId = addLeaf(projectName, parentNode);
-            if (!StringUtils.isEmpty(nodeId)) {
-                return nodeId;
+            PatternNodeKey nodeKey = addLeaf(projectName, parentNode);
+            if (nodeKey != null) {
+                return nodeKey;
             } else {
-                Map<String, PatternNode> newLevelNodes = getNodes(projectName);
-                MapDifference<String, PatternNode> diff = Maps.difference(levelNodes, newLevelNodes);
-                for (Map.Entry<String, PatternNode> node : diff.entriesOnlyOnRight().entrySet()) {
+                Map<PatternNodeKey, PatternNode> newLevelNodes = getNodes(projectName);
+                MapDifference<PatternNodeKey, PatternNode> diff = Maps.difference(levelNodes, newLevelNodes);
+                for (Map.Entry<PatternNodeKey, PatternNode> node : diff.entriesOnlyOnRight().entrySet()) {
                     if (FastClustering.belongsToCluster(tokens,
                             node.getValue().getRepresentTokens(), maxDistance)) {
                         return node.getKey();
@@ -70,21 +70,19 @@ public final class PatternLeaves {
             }
         } while (triedTimes < Constants.FINDCLUSTER_TOLERANCE_TIMES);
 
-        return "";
+        return null;
     }
 
 
-    public String addLeaf(String projectName, PatternNode node) {
+    public PatternNodeKey addLeaf(String projectName, PatternNode node) {
         try {
             String nodeId = UUID.randomUUID().toString().replace("-", "");
-            if (treeHelper.addNodesToCenter(projectName, 0, nodeId, node)) {
-                String nodeKey = String.format("%s%s%s%s%s",
-                        projectName, Constants.PATTERN_NODE_KEY_DELIMITER,
-                        0, Constants.PATTERN_NODE_KEY_DELIMITER, nodeId);
-                if (patternNodes.containsKey(projectName)) {
+            PatternNodeKey nodeKey = new PatternNodeKey(projectName, 0, nodeId);
+            if (treeHelper.addNodesToCenter(nodeKey, node)) {
+                if (patternNodes.containsKey(nodeKey.getProjectName())) {
                     patternNodes.get(projectName).put(nodeKey, node);
                 } else {
-                    Map<String, PatternNode> nodes = new HashMap<>();
+                    Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
                     nodes.put(nodeKey, node);
                     patternNodes.put(projectName, nodes);
                 }
@@ -92,14 +90,14 @@ public final class PatternLeaves {
                 return nodeKey;
             }
         } catch (Exception e) {
-           return "";
+            e.printStackTrace();
         }
-        return "";
+        return null;
     }
 
-    public Map<String, PatternNode> getNodes(String projectName) {
+    public Map<PatternNodeKey, PatternNode> getNodes(String projectName) {
         //For java pass object by reference
-        Map<String, PatternNode> nodes = new HashMap<>();
+        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         if (patternNodes.containsKey(projectName)) {
             nodes.putAll(patternNodes.get(projectName));
         }
@@ -108,12 +106,12 @@ public final class PatternLeaves {
 
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<String, Map<String, PatternNode>> entry : patternNodes.entrySet()) {
+        for (Map.Entry<String, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
             stringBuilder.append("project " + entry.getKey() + " leaves:");
             stringBuilder.append(System.getProperty("line.separator"));
-            for (Map.Entry<String, PatternNode> entryNode : entry.getValue().entrySet()) {
+            for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
                 stringBuilder.append(String.format("key: %s\tvalue:%s",
-                        entryNode.getKey(), entryNode.getValue().toString()));
+                        entryNode.getKey().toString(), entryNode.getValue().toString()));
                 stringBuilder.append(System.getProperty("line.separator"));
             }
         }
@@ -122,15 +120,15 @@ public final class PatternLeaves {
 
     private String toJsonString() {
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<String, Map<String, PatternNode>> entry : patternNodes.entrySet()) {
-            for (Map.Entry<String, PatternNode> entryNode : entry.getValue().entrySet()) {
+        for (Map.Entry<String, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+            for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
                 Map<String, String> jsonItems = new HashMap<>();
-                jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey());
+                jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
                 jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
                         String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
-                jsonItems.put("parentId", entryNode.getValue().getParentId());
+                jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
                 stringBuilder.append(gson.toJson(jsonItems));
                 stringBuilder.append(System.getProperty("line.separator"));
             }

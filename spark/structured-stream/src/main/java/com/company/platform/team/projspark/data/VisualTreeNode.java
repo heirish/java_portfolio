@@ -28,8 +28,9 @@ public class VisualTreeNode {
             return this;
         } else {
             for (VisualTreeNode node : children) {
-                if (node.getNode(nodeId) != null) {
-                    return node;
+                VisualTreeNode foundNode = node.getNode(nodeId);
+                if (foundNode != null) {
+                    return foundNode;
                 }
             }
         }

@@ -2,6 +2,7 @@ package com.company.platform.team.projspark.modules;
 
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternNode;
+import com.company.platform.team.projspark.data.PatternNodeKey;
 import com.google.gson.Gson;
 
 import java.io.BufferedReader;
@@ -19,23 +20,30 @@ public class PatternTreeHelper {
     private String lastUpdatedTime = "";
     private static final Gson gson = new Gson();
 
-    public Map<String, PatternNode> getAllNodes() {
-        Map<String, PatternNode> nodes = new HashMap<>();
+    public Map<PatternNodeKey, PatternNode> getAllNodes() {
+        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO:read from all level directory
-        String file = "./patternLeaves";
+        //String file = "./patternLeaves";
+        String file = "./patterntree";
         try (BufferedReader br = new BufferedReader(new FileReader(file))){
             String line;
             while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                Map<String, String> fields = gson.fromJson(line, Map.class);
-                String key = fields.get(Constants.FIELD_PATTERNID);
-                List<String> patternTokens= Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
-                        .split(Constants.PATTERN_NODE_KEY_DELIMITER));
-                List<String> representTokens = Arrays.asList(fields.get(Constants.FIELD_REPRESENTTOKENS)
-                        .split(Constants.PATTERN_NODE_KEY_DELIMITER));
-                PatternNode node = new PatternNode(representTokens);
-                node.updatePatternTokens(patternTokens);
-                nodes.put(key, node);
+                try {
+                    Map<String, String> fields = gson.fromJson(line, Map.class);
+                    PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
+                    //TODO:parentId is null
+                    PatternNodeKey parentKey = PatternNodeKey.fromString(fields.get("parentId"));
+                    List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
+                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    List<String> representTokens = Arrays.asList(fields.get(Constants.FIELD_REPRESENTTOKENS)
+                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    PatternNode node = new PatternNode(representTokens);
+                    node.updatePatternTokens(patternTokens);
+                    node.setParent(parentKey);
+                    nodes.put(key, node);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -44,8 +52,8 @@ public class PatternTreeHelper {
         return nodes;
     }
 
-    public Map<String, PatternNode> getAllLeaves() {
-        Map<String, PatternNode> nodes = new HashMap<>();
+    public Map<PatternNodeKey, PatternNode> getAllLeaves() {
+        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         lastUpdatedTime = String.valueOf(System.currentTimeMillis());
         return nodes;
     }
@@ -62,20 +70,16 @@ public class PatternTreeHelper {
         return nodes;
     }
 
-    public boolean addNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
+    public boolean addNodesToCenter(PatternNodeKey nodeKey, PatternNode node) {
         // TODO:
         // 1. send lastUpdatedTime and nodeinfo to Center
         // 2. if center return tells that need to synchronize
         //        synchronize and return false
         // 3. else return what center returned, true - center added succeed, false - center added failure
-        String key = String.format("%s%s%s%s%s",
-                projectName, Constants.PATTERN_NODE_KEY_DELIMITER,
-                nodeLevel, Constants.PATTERN_NODE_KEY_DELIMITER,
-                nodeId);
         return true;
     }
 
-    public boolean updateNodesToCenter(String projectName, int nodeLevel, String nodeId, PatternNode node) {
+    public boolean updateNodesToCenter(PatternNodeKey nodeKey, PatternNode node) {
         // TODO:
         return true;
     }

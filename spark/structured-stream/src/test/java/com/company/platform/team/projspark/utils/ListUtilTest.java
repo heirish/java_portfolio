@@ -3,6 +3,7 @@ package com.company.platform.team.projspark.utils;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternLevelTree;
 import com.company.platform.team.projspark.data.PatternNode;
+import com.company.platform.team.projspark.data.PatternNodeKey;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
@@ -103,25 +104,26 @@ public class ListUtilTest {
 
     @Test
     public void visualizeTreeTest() {
-        //System.out.println(PatternLevelTree.getInstance().visualize("nelo2-monitoring-alpha"));
+        System.out.println(PatternLevelTree.getInstance().visualize("nelo2-monitoring-alpha"));
         //System.out.println(PatternLevelTree.getInstance().visualize());
-        PatternLevelTree.getInstance().saveTreeToFile("./visualpatterntree");
-        PatternLevelTree.getInstance().backupTree("./patterntree");
+        //PatternLevelTree.getInstance().saveTreeToFile("./visualpatterntree");
+        //PatternLevelTree.getInstance().backupTree("./patterntree");
     }
 
     @Test
     public void updateNodeParentTest() {
         try {
+            String projectName = "syslog";
             PatternNode node = PatternLevelTree.getInstance()
-                    .getNode("syslog", 0, "79c6e45827a946388b3a7e3199474d96");
+                    .getNode(new PatternNodeKey(projectName, 0, "79c6e45827a946388b3a7e3199474d96"));
             if (!node.hasParent()) {
-                String parentId = PatternLevelTree.getInstance()
-                        .getParentNodeId(node.getPatternTokens(), "syslog", 1, 0.4);
-                node.setParent(parentId);
+                PatternNodeKey parentKey = PatternLevelTree.getInstance()
+                        .getParentNodeId(node.getPatternTokens(), projectName, 1, 0.4);
+                node.setParent(parentKey);
             }
-            PatternLevelTree.getInstance().updateNode("syslog", 0,
-                    "79c6e45827a946388b3a7e3199474d96", node);
-            System.out.println(PatternLevelTree.getInstance().visualize("syslog"));
+            PatternLevelTree.getInstance().updateNode(new PatternNodeKey(projectName, 0,
+                    "79c6e45827a946388b3a7e3199474d96"), node);
+            System.out.println(PatternLevelTree.getInstance().visualize(projectName));
             //System.out.println(PatternLevelTree.getInstance().toString());
         } catch (Exception e) {
             e.printStackTrace();

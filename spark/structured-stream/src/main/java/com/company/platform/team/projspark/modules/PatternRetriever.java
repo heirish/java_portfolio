@@ -3,6 +3,7 @@ package com.company.platform.team.projspark.modules;
 import com.company.platform.team.projspark.data.Constants;
 import com.company.platform.team.projspark.data.PatternLevelTree;
 import com.company.platform.team.projspark.data.PatternNode;
+import com.company.platform.team.projspark.data.PatternNodeKey;
 import com.company.platform.team.projspark.utils.ListUtil;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
@@ -69,7 +70,7 @@ public class PatternRetriever {
                 int nodeLevel = Integer.parseInt(keyItems[1]);
                 String nodeId = keyItems[2];
 
-                PatternNode node = PatternLevelTree.getInstance().getNode(key.toString());
+                PatternNode node = PatternLevelTree.getInstance().getNode(PatternNodeKey.fromString(key.toString()));
                 List<String> newTokens = node.getPatternTokens();
                 for (Text value : values) {
                     List<String> tokens2 = Arrays.asList(value.toString().split(Constants.PATTERN_NODE_KEY_DELIMITER));
@@ -78,26 +79,28 @@ public class PatternRetriever {
                 node.updatePatternTokens(newTokens);
 
                 if (!node.hasParent()) {
-                    String parentId = PatternLevelTree.getInstance()
+                    PatternNodeKey parentNodeKey = PatternLevelTree.getInstance()
                             .getParentNodeId(newTokens, projectName, nodeLevel+1, maxDist);
-                    node.setParent(parentId);
+                    node.setParent(parentNodeKey);
+                    //For test
+                    if (parentNodeKey != null) {
+                        PatternNode parentNode = PatternLevelTree.getInstance().getNode(node.getParentId());
+                        Text reduceOutValue = new Text();
+                        Map<String, String> jsonItems = new HashMap<>();
+                        jsonItems.put(Constants.FIELD_PATTERNID, parentNodeKey.toString());
+                        jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
+                                String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getRepresentTokens()));
+                        jsonItems.put(Constants.FIELD_PATTERNTOKENS,
+                                String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getPatternTokens()));
+                        reduceOutValue.set(gson.toJson(jsonItems));
+                        System.out.println("this node pattern" + Arrays.toString(node.getPatternTokens().toArray()));
+                        System.out.println("parent node pattern" + Arrays.toString(parentNode.getPatternTokens().toArray()));
+                        context.write(NullWritable.get(), reduceOutValue);
+                    }
                 }
 
                 //update the tree node(parent Id and pattern) by key
-                PatternLevelTree.getInstance().updateNode(projectName, nodeLevel, nodeId, node);
-
-                //For test
-                String parentKey = node.getParentId();
-                PatternNode parentNode = PatternLevelTree.getInstance().getNode(node.getParentId());
-                Text reduceOutValue = new Text();
-                Map<String, String> jsonItems = new HashMap<>();
-                jsonItems.put(Constants.FIELD_PATTERNID, parentKey);
-                jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getRepresentTokens()));
-                jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, parentNode.getPatternTokens()));
-                reduceOutValue.set(gson.toJson(jsonItems));
-                context.write(NullWritable.get(), reduceOutValue);
+                PatternLevelTree.getInstance().updateNode(new PatternNodeKey(projectName, nodeLevel, nodeId), node);
             } catch (Exception e) {
                 logger.error("key: "+key.toString(), e);
             }

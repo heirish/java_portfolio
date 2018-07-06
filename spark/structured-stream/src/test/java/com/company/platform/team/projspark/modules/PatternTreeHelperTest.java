@@ -1,6 +1,7 @@
 package com.company.platform.team.projspark.modules;
 
 import com.company.platform.team.projspark.data.PatternNode;
+import com.company.platform.team.projspark.data.PatternNodeKey;
 import org.junit.Test;
 
 import java.util.Map;
@@ -12,9 +13,9 @@ public class PatternTreeHelperTest {
     @Test
     public void getAllNodesTest() {
         PatternTreeHelper helper = new PatternTreeHelper();
-        Map<String, PatternNode> nodes = helper.getAllNodes();
-        for (Map.Entry<String, PatternNode> entry : nodes.entrySet()) {
-            System.out.println(entry.getKey());
+        Map<PatternNodeKey, PatternNode> nodes = helper.getAllNodes();
+        for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
+            System.out.println(entry.getKey().toString());
             System.out.println(entry.getValue().getRepresentTokens());
             System.out.println(entry.getValue().getPatternTokens());
         }
