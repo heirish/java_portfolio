@@ -1,0 +1,7 @@
+{
+    "serviceType": "spark",
+    "leafSimilarity": 0.7,
+
+    "kafkaBrokers": "localhost:9092",
+    "kafkaTopics": "test"
+}

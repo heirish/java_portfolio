@@ -1,8 +1,8 @@
 package com.company.platform.team.projspark.modules;
 
-import com.company.platform.team.projspark.data.Constants;
-import com.company.platform.team.projspark.data.PatternNode;
-import com.company.platform.team.projspark.data.PatternNodeKey;
+import com.company.platform.team.projspark.common.data.Constants;
+import com.company.platform.team.projspark.common.data.PatternNode;
+import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 

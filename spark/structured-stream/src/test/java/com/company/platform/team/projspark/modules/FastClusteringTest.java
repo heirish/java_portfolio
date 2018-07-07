@@ -1,6 +1,6 @@
 package com.company.platform.team.projspark.modules;
 
-import com.company.platform.team.projspark.preprocess.Tokenizer;
+import com.company.platform.team.projspark.common.preprocess.Tokenizer;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 

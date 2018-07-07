@@ -1,7 +1,7 @@
 package com.company.platform.team.projspark.modules;
 
-import com.company.platform.team.projspark.data.PatternNode;
-import com.company.platform.team.projspark.data.PatternNodeKey;
+import com.company.platform.team.projspark.common.data.PatternNode;
+import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import org.junit.Test;
 
 import java.util.Map;
