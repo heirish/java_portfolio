@@ -6,6 +6,8 @@ import java.util.List;
  * Created by admin on 2018/6/21.
  */
 public class PatternNode {
+    private static final String DELIMITER = "#@#";
+    private long lastupdatedTime;
     private List<String> representTokens;
     private List<String> patternTokens;
 
@@ -22,6 +24,14 @@ public class PatternNode {
        this.representTokens = node.representTokens;
        this.parentNodeKey = node.parentNodeKey;
        this.patternTokens = node.patternTokens;
+    }
+
+    public void setLastupdatedTime(long updateTime) {
+        this.lastupdatedTime = updateTime;
+    }
+
+    public long getLastupdatedTime() {
+        return lastupdatedTime;
     }
 
     public boolean hasParent() {

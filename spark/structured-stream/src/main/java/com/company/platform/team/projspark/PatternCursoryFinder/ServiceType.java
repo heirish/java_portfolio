@@ -26,5 +26,4 @@ public enum ServiceType {
         }
         throw new IllegalArgumentException("No servicetype with text " + text + " found");
     }
-
 }
