@@ -1,7 +1,7 @@
 package com.company.platform.team.projspark.common.utils;
 
 import com.company.platform.team.projspark.common.data.Constants;
-import com.company.platform.team.projspark.common.data.PatternLevelTree;
+import com.company.platform.team.projspark.PatternRefiner.PatternLevelTree;
 import com.company.platform.team.projspark.common.data.PatternNode;
 import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import org.apache.log4j.Logger;

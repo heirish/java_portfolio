@@ -1,5 +1,8 @@
-package com.company.platform.team.projspark.common.data;
+package com.company.platform.team.projspark.PatternCursoryFinder;
 
+import com.company.platform.team.projspark.common.data.Constants;
+import com.company.platform.team.projspark.common.data.PatternNode;
+import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.company.platform.team.projspark.modules.FastClustering;
 import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
@@ -85,7 +88,7 @@ public final class PatternLeaves {
                     nodes.put(nodeKey, node);
                     patternNodes.put(projectName, nodes);
                 }
-                saveToFile("./patternLeaves");
+                saveToFile("tree/patternLeaves");
                 return nodeKey;
             }
         } catch (Exception e) {

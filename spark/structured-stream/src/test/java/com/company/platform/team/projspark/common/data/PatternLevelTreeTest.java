@@ -1,5 +1,6 @@
 package com.company.platform.team.projspark.common.data;
 
+import com.company.platform.team.projspark.PatternRefiner.PatternLevelTree;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -18,12 +19,12 @@ public class PatternLevelTreeTest {
 
     @Test
     public void saveTreeToFileTest(){
-        PatternLevelTree.getInstance().saveTreeToFile("./LevelTreeSaveTest");
+        PatternLevelTree.getInstance().saveTreeToFile("test/LevelTreeSaveTest");
     }
 
     @Test
     public void backupTreeTest(){
-        PatternLevelTree.getInstance().backupTree("./LevelTreebakTest");
+        PatternLevelTree.getInstance().backupTree("test/LevelTreebakTest");
     }
 
     @Test
@@ -31,7 +32,7 @@ public class PatternLevelTreeTest {
         Map<PatternNodeKey, PatternNode> nodes = PatternLevelTree
                 .getInstance().getNodes(new PatternLevelKey("test", 0));
         try {
-            FileWriter fw = new FileWriter("leveltreeserializeTest");
+            FileWriter fw = new FileWriter("test/leveltreeserializeTest");
             String treeString = gson.toJson(nodes);
             JsonObject object=new JsonObject();
             object.addProperty("count", nodes.size());
@@ -50,7 +51,7 @@ public class PatternLevelTreeTest {
         try {
             PatternNodeKey nodeKey;
             PatternNode node;
-            FileWriter fw = new FileWriter("leveltreeserializeTest2");
+            FileWriter fw = new FileWriter("test/leveltreeserializeTest2");
             for(Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
                 nodeKey = entry.getKey();
                 node = entry.getValue();
@@ -70,7 +71,7 @@ public class PatternLevelTreeTest {
         Map<PatternNodeKey, PatternNode> nodes = PatternLevelTree
                 .getInstance().getNodes(new PatternLevelKey("test", 0));
         try {
-            FileWriter fw = new FileWriter("leveltreeDeserializeTest");
+            FileWriter fw = new FileWriter("test/leveltreeDeserializeTest");
             JsonObject object=new JsonObject();
             object.addProperty("count", nodes.size());
             object.add("sources", gson.toJsonTree(nodes));

@@ -1,7 +1,6 @@
 package com.company.platform.team.projspark.PatternRefiner;
 
 import com.company.platform.team.projspark.common.data.Constants;
-import com.company.platform.team.projspark.common.data.PatternLevelTree;
 import com.company.platform.team.projspark.common.data.PatternNode;
 import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.company.platform.team.projspark.common.utils.ListUtil;
@@ -14,7 +13,6 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
-import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -69,13 +67,11 @@ public class MapReduceRefinerWorker {
         public void reduce(Text key, Iterable<Text> values,
                            Context context) throws IOException, InterruptedException {
             try {
-                System.out.println("node key : " + key.toString());
                 PatternNodeKey nodeKey = PatternNodeKey.fromString(key.toString());
 
                 PatternNode node = PatternLevelTree.getInstance().getNode(nodeKey);
                 List<String> newTokens = node.getPatternTokens();
                 for (Text value : values) {
-                    System.out.println(Arrays.toString(newTokens.toArray()));
                     List<String> tokens2 = Arrays.asList(value.toString().split(Constants.PATTERN_NODE_KEY_DELIMITER));
                     newTokens = retrievePattern(newTokens, tokens2);
                 }

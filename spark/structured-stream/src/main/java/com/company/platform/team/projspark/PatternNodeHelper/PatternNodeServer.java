@@ -19,16 +19,18 @@ import java.util.Map;
 public class PatternNodeServer {
     private String serverAddress;
     private PatternNodeCenterType centerType;
+    private int nThread;
 
-    public PatternNodeServer(String serverAddress, PatternNodeCenterType centerType) {
+    public PatternNodeServer(String serverAddress, PatternNodeCenterType centerType, int nThread) {
         this.serverAddress = serverAddress;
         this.centerType = centerType;
+        this.nThread = nThread;
     }
 
     public void start() throws Exception {
         if (centerType == PatternNodeCenterType.HBASE
                 || centerType == PatternNodeCenterType.HDFS) {
-            new PatternNodeThriftServer(serverAddress).start();
+            new PatternNodeThriftServer(serverAddress, nThread).start();
         }
     }
 }

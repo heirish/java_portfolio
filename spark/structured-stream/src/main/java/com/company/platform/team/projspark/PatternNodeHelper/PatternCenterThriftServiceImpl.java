@@ -1,5 +1,7 @@
 package com.company.platform.team.projspark.PatternNodeHelper;
 
+import com.company.platform.team.projspark.PatternRefiner.PatternLevelTree;
+import com.company.platform.team.projspark.common.data.PatternLevelKey;
 import com.company.platform.team.projspark.common.data.PatternNode;
 import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.google.gson.Gson;
@@ -8,6 +10,7 @@ import com.google.gson.JsonParser;
 import org.apache.thrift.TException;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Created by Administrator on 2018/7/7 0007.
@@ -18,8 +21,8 @@ public class PatternCenterThriftServiceImpl implements PatternCenterThriftServic
 
     @Override
     public String getNodes(String projectName, int nodeLevel) throws TException {
-        Map<PatternNodeKey, PatternNode> nodes = TestCenter.getInstance()
-                .getNodes(projectName, nodeLevel);
+        Map<PatternNodeKey, PatternNode> nodes = PatternLevelTree.getInstance()
+                .getNodes(new PatternLevelKey(projectName, nodeLevel));
         JsonObject object=new JsonObject();
         object.addProperty("count", nodes.size());
         object.add("sources", gson.toJsonTree(nodes));
@@ -30,7 +33,7 @@ public class PatternCenterThriftServiceImpl implements PatternCenterThriftServic
     public String synchronizeNodes(String projectName,
                                    int nodeLevel,
                                    long latestUpdatedTime) throws TException {
-        Map<PatternNodeKey, PatternNode> nodes = TestCenter.getInstance()
+        Map<PatternNodeKey, PatternNode> nodes = PatternLevelTree.getInstance()
                 .getNodesNewerThan(projectName, nodeLevel, latestUpdatedTime);
         JsonObject object=new JsonObject();
         object.addProperty("count", nodes.size());
@@ -43,7 +46,7 @@ public class PatternCenterThriftServiceImpl implements PatternCenterThriftServic
         JsonObject jsonObject = jsonParser.parse(nodeInfo).getAsJsonObject();
         PatternNodeKey nodeKey = gson.fromJson(jsonObject.get("nodeKey"), PatternNodeKey.class);
         PatternNode node = gson.fromJson(jsonObject.get("nodeValue"), PatternNode.class);
-        return String.valueOf(TestCenter.getInstance()
+        return String.valueOf(PatternLevelTree.getInstance()
                 .addNode(nodeKey, node, latestUpdatedTime));
     }
 
@@ -52,7 +55,7 @@ public class PatternCenterThriftServiceImpl implements PatternCenterThriftServic
         JsonObject jsonObject = jsonParser.parse(nodeInfo).getAsJsonObject();
         PatternNodeKey nodeKey = gson.fromJson(jsonObject.get("nodeKey"), PatternNodeKey.class);
         PatternNode node = gson.fromJson(jsonObject.get("nodeValue"), PatternNode.class);
-        return String.valueOf(TestCenter.getInstance()
+        return String.valueOf(PatternLevelTree.getInstance()
                 .updateNode(nodeKey, node));
     }
 }

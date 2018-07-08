@@ -31,7 +31,7 @@ public class TestCenter {
 
     private TestCenter() {
         String file = "./patternLeaves";
-        //String file = "./patterntree";
+        //String file = "tree/patterntree";
         try (BufferedReader br = new BufferedReader(new FileReader(file))){
             String line;
             while ((line = br.readLine()) != null) {
@@ -60,11 +60,15 @@ public class TestCenter {
     }
 
 
+    public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
+        return getNodes(levelKey.getProjectName(), levelKey.getLevel());
+    }
+
     public Map<PatternNodeKey, PatternNode> getNodes(String projectName, int nodeLevel) {
         Map<PatternNodeKey, PatternNode> returnNodes = new HashMap<>();
-        PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
         for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
-            if (levelKey.equals(entry.getKey().getLevelKey())) {
+            if (StringUtils.equals(entry.getKey().getProjectName(), projectName)
+                    && entry.getKey().getLevel() == nodeLevel) {
                 returnNodes.put(entry.getKey(), entry.getValue());
             }
         }
@@ -77,12 +81,21 @@ public class TestCenter {
         Map<PatternNodeKey, PatternNode> returnNodes = new HashMap<>();
         PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
         for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
-            if (levelKey.equals(entry.getKey().getLevelKey())
+            if (StringUtils.equals(entry.getKey().getProjectName(), projectName)
+                    && entry.getKey().getLevel() == nodeLevel
                     && entry.getValue().getLastupdatedTime() >= lastUpdatedTime) {
                 returnNodes.put(entry.getKey(), entry.getValue());
             }
         }
         return returnNodes;
+    }
+
+    public PatternNode getNode(PatternNodeKey nodeKey) {
+        if (nodes.containsKey(nodeKey)) {
+            return new PatternNode(nodes.get(nodeKey));
+        } else {
+            return null;
+        }
     }
 
     private long getMaxUpdatedTime(String projectName, int nodeLevel) {

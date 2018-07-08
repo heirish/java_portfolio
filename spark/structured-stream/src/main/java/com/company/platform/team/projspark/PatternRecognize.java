@@ -20,7 +20,6 @@ import java.io.FileReader;
  */
 public class PatternRecognize{
     private static final Logger logger = Logger.getLogger("");
-    private static final Gson gson = new Gson();
     private static String jobType;
     private static String confFile;
 
@@ -40,15 +39,13 @@ public class PatternRecognize{
     }
 
     private static void startPatternFinderService(String jsonConfFile) throws Exception{
-        BufferedReader br = new BufferedReader(new FileReader(jsonConfFile));
-        FinderServiceConfigure conf = gson.fromJson(br, FinderServiceConfigure.class);
+        FinderServiceConfigure conf = FinderServiceConfigure.parseFromJson(jsonConfFile);
         FinderService finderService = new FinderService(conf, "logpatternfinder");
         finderService.run();
     }
 
     private static void startPatternRefinerService(String jsonConfFile) throws Exception {
-        BufferedReader br = new BufferedReader(new FileReader(jsonConfFile));
-        RefinerServiceConfigure conf = gson.fromJson(br, RefinerServiceConfigure.class);
+        RefinerServiceConfigure conf = RefinerServiceConfigure.parseFromJson(jsonConfFile);
         RefinerService refinerService = new RefinerService(conf, "patternretriever");
         refinerService.run();
     }
@@ -78,7 +75,7 @@ public class PatternRecognize{
 
     private static void showHelp(Options options) {
         HelpFormatter formater = new HelpFormatter();
-        formater.printHelp("SimpleApp", options);
+        formater.printHelp("PatternRecognize", options);
         System.exit(0);
     }
 }

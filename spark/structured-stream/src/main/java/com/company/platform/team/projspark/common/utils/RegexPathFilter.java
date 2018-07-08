@@ -22,7 +22,8 @@ public class RegexPathFilter extends Configured implements PathFilter {
     @Override
     public boolean accept(Path path) {
         try {
-            if (fs.isDirectory(path)) {
+            if (StringUtils.equalsIgnoreCase(conf.get("file.keepdir"), "true")
+                && fs.isDirectory(path)) {
                 return true;
             }
         } catch (IOException e) {
@@ -46,6 +47,9 @@ public class RegexPathFilter extends Configured implements PathFilter {
                     filePattern = ".*"; // Every files by default
                     conf.set("file.pattern", filePattern);
                 }
+                //System.out.println(conf.toString());
+                //System.out.println(conf.getRaw("fs.defaultFS"));
+                //System.out.println(conf.getRaw("hdfs-site.xml"));
                 pattern = Pattern.compile(filePattern);
                 fs = FileSystem.get(conf);
             } catch (IOException e) {

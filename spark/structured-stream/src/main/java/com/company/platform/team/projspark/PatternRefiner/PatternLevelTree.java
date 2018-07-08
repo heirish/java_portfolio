@@ -1,5 +1,6 @@
-package com.company.platform.team.projspark.common.data;
+package com.company.platform.team.projspark.PatternRefiner;
 
+import com.company.platform.team.projspark.common.data.*;
 import com.company.platform.team.projspark.modules.FastClustering;
 import com.company.platform.team.projspark.modules.PatternTreeHelper;
 import com.google.common.collect.MapDifference;
@@ -65,10 +66,11 @@ public final class PatternLevelTree {
         }
 
         int triedTimes = 0;
+        PatternNodeKey nodeKey = new PatternNodeKey(projectName, nodeLevel);
         PatternNode parentNode= new PatternNode(tokens);
         do {
-            PatternNodeKey nodeKey = addNode(projectName, nodeLevel, parentNode);
-            if (nodeKey != null) {
+            long timestamp = addNode(nodeKey, parentNode, getMaxUpdatedTime(projectName, nodeLevel));
+            if (timestamp > 0) {
                 return nodeKey;
             } else {
                 Map<PatternNodeKey, PatternNode> newLevelNodes = getNodes(levelKey);
@@ -86,38 +88,38 @@ public final class PatternLevelTree {
         return null;
     }
 
-    public void updateNode(PatternNodeKey nodeKey, PatternNode node) throws Exception{
+    public long updateNode(PatternNodeKey nodeKey, PatternNode node) {
         PatternLevelKey levelKey = nodeKey.getLevelKey();
-        if (patternNodes.containsKey(levelKey) && patternNodes.get(levelKey).containsKey(nodeKey)) {
-            if(treeHelper.updateNodesToCenter(nodeKey, node)) {
-                patternNodes.get(levelKey).put(nodeKey, node);
-            } else {
-                throw new Exception("udpate to Nodes center failed");
-            }
-        } else {
-            throw new Exception("node not exists");
+        if (!patternNodes.containsKey(levelKey)
+                || !patternNodes.get(levelKey).containsKey(nodeKey)) {
+            return 0;
         }
+
+        node.setLastupdatedTime(System.currentTimeMillis());
+        patternNodes.get(levelKey).put(nodeKey, node);
+        return node.getLastupdatedTime();
     }
 
-    public PatternNodeKey addNode(String projectName, int nodeLevel, PatternNode node) {
-        try {
-            PatternNodeKey nodeKey = new PatternNodeKey(projectName, nodeLevel);
-            if (treeHelper.addNodesToCenter(nodeKey, node)) {
-                PatternLevelKey levelKey = nodeKey.getLevelKey();
-                System.out.println("add node: " + nodeKey.toString());
-                if (patternNodes.containsKey(levelKey)) {
-                    patternNodes.get(levelKey).put(nodeKey, node);
-                } else {
-                    Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-                    nodes.put(nodeKey, node);
-                    patternNodes.put(levelKey, nodes);
-                }
-                return nodeKey;
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+    public long addNode(PatternNodeKey nodeKey, PatternNode node, long clientlastUpdatedTime) {
+
+        long maxUpdateTime = getMaxUpdatedTime(nodeKey.getProjectName(),
+                nodeKey.getLevel());
+        //client need to synchronize
+        if (clientlastUpdatedTime < maxUpdateTime) {
+            return 0;
         }
-        return null;
+        node.setLastupdatedTime(System.currentTimeMillis());
+
+        PatternLevelKey levelKey = nodeKey.getLevelKey();
+        if (patternNodes.containsKey(nodeKey.getLevelKey())) {
+            patternNodes.get(levelKey).put(nodeKey, node);
+        } else {
+            Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+            nodes.put(nodeKey, node);
+            patternNodes.put(levelKey, nodes);
+        }
+
+        return node.getLastupdatedTime();
     }
 
     public PatternNode getNode(PatternNodeKey nodeKey) {
@@ -138,14 +140,19 @@ public final class PatternLevelTree {
         return nodes;
     }
 
-    public Map<PatternNodeKey, PatternNode> getNodes(int nodeLevel) {
-        Map<PatternNodeKey, PatternNode> nodes  = new HashMap<>();
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry: patternNodes.entrySet()) {
-            if (entry.getKey().getLevel() == nodeLevel) {
-                nodes.putAll(entry.getValue());
+    public Map<PatternNodeKey, PatternNode> getNodesNewerThan(String projectName,
+                                                              int nodeLevel,
+                                                              long lastUpdatedTime) {
+        Map<PatternNodeKey, PatternNode> returnNodes = new HashMap<>();
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
+        if (patternNodes.containsKey(levelKey)) {
+            for (Map.Entry<PatternNodeKey, PatternNode> entry : patternNodes.get(levelKey).entrySet()) {
+                if (entry.getValue().getLastupdatedTime() >= lastUpdatedTime) {
+                    returnNodes.put(entry.getKey(), entry.getValue());
+                }
             }
         }
-        return nodes;
+        return returnNodes;
     }
 
     public Set<String> getAllProjectsName() {
@@ -165,6 +172,20 @@ public final class PatternLevelTree {
             }
         }
         return maxLevel;
+    }
+
+    private long getMaxUpdatedTime(String projectName, int nodeLevel) {
+        long maxUpdateTime = 0;
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
+        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+            for (Map.Entry<PatternNodeKey, PatternNode> nodeEntry : entry.getValue().entrySet()) {
+                if (levelKey.equals(nodeEntry.getKey().getLevelKey())) {
+                    maxUpdateTime = maxUpdateTime < nodeEntry.getValue().getLastupdatedTime() ?
+                            nodeEntry.getValue().getLastupdatedTime() : maxUpdateTime;
+                }
+            }
+        }
+        return maxUpdateTime;
     }
 
     public String visualize() {

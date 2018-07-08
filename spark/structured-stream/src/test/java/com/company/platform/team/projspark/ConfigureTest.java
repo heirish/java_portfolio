@@ -1,5 +1,6 @@
 package com.company.platform.team.projspark;
 
+import com.company.platform.team.projspark.PatternCursoryFinder.FinderServiceConfigure;
 import com.company.platform.team.projspark.PatternRefiner.RefinerServiceConfigure;
 import com.google.gson.Gson;
 import org.junit.Test;
@@ -15,8 +16,8 @@ public class ConfigureTest {
     @Test
     public void RefinerConfTest() {
         try {
-            BufferedReader br = new BufferedReader(new FileReader("./patternrefiner.json"));
-            RefinerServiceConfigure conf = gson.fromJson(br, RefinerServiceConfigure.class);
+            FinderServiceConfigure conf = FinderServiceConfigure.parseFromJson("conf/cursoryfinder.json");
+            System.out.println(conf.getLogOutType());
         } catch (Exception e) {
             e.printStackTrace();
         }

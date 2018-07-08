@@ -24,7 +24,7 @@ public class PatternTreeHelper {
     public Map<PatternNodeKey, PatternNode> getAllNodes() {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO:read from all level directory
-        String file = "./patternLeaves";
+        String file = "tree/patternLeaves";
         //String file = "./patterntree";
         try (BufferedReader br = new BufferedReader(new FileReader(file))){
             String line;

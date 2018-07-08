@@ -51,8 +51,8 @@ public class CommonUtils {
     // consider the newest files are not completed yet, others can be moved
     //because java 's File.lastModified() precious in milliseconds, but on *nix, it has bug with the last tree digits
     public static int moveFilesAlreadyCompleted(String sourceDir, String destDir, String filterRegex) {
-        File dirFile = new File(sourceDir);
         File destDirFile = new File(destDir);
+        File dirFile = new File(sourceDir);
         FileFilter filter = new RegexFileFilter(filterRegex);
         File[] files = dirFile.listFiles(filter);
 

@@ -1,8 +1,8 @@
 package com.company.platform.team.projspark.PatternRefiner;
 
 import com.company.platform.team.projspark.common.data.Constants;
-import com.company.platform.team.projspark.common.data.PatternLevelTree;
 import com.company.platform.team.projspark.common.utils.CommonUtils;
+import com.company.platform.team.projspark.common.utils.HdfsUtil;
 import com.company.platform.team.projspark.common.utils.RegexPathFilter;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringEscapeUtils;
@@ -37,6 +37,10 @@ public class MapReduceRefiner implements Runnable {
             //for (int i = 0; i < 2; i++) {
             try {
                 Configuration conf = new Configuration();
+                conf.set("file.keepdir", "true");
+                if (!StringUtils.isEmpty(refinderConf.getHadoopResource())) {
+                    conf.addResource(new Path(refinderConf.getHadoopResource()));
+                }
                 if (!StringUtils.isEmpty(refinderConf.getInputfilter())) {
                     conf.set("file.pattern",
                             StringEscapeUtils.escapeJava(refinderConf.getInputfilter()));
@@ -57,13 +61,22 @@ public class MapReduceRefiner implements Runnable {
                 job.setOutputKeyClass(NullWritable.class);
                 job.setOutputValueClass(Text.class);
 
-                //TODO: if (i == 0) { set inputDir } else read Nodes from tree
+                //if (i == 0) { set inputDir } else read Nodes from tree
                 FileInputFormat.setInputPathFilter(job, RegexPathFilter.class);
                 String inputPath = refinderConf.getOutputDir()+ "-" + String.valueOf(i);
                 if (i == 0) {
                     //There is no new coming files
-                    if (CommonUtils.moveFilesAlreadyCompleted(refinderConf.getInputDir(),
-                            inputPath, "(.*.json)|(.*.crc)") == 0) {
+                    int movedFileCount = 0;
+                    if (StringUtils.equalsIgnoreCase(refinderConf.getFileSystemType(), "hdfs")) {
+                        System.out.println("input Path: " + refinderConf.getInputDir());
+                        movedFileCount = HdfsUtil.moveFilesAlreadyCompleted(refinderConf.getInputDir(),
+                                inputPath, "(.*.json)|(.*.crc)",
+                                refinderConf.getHadoopResource());
+                    } else {
+                        movedFileCount = CommonUtils.moveFilesAlreadyCompleted(refinderConf.getInputDir(),
+                                inputPath, "(.*.json)|(.*.crc)");
+                    }
+                    if (movedFileCount <= 0) {
                         break;
                     }
                 }
@@ -73,8 +86,12 @@ public class MapReduceRefiner implements Runnable {
                 //first delete if outputdir exists
                 String outputPath = refinderConf.getOutputDir()+ "-" + String.valueOf(i+1);
                 try {
-                    File file = new File(outputPath);
-                    FileUtils.deleteDirectory(file);
+                    if (StringUtils.equalsIgnoreCase(refinderConf.getFileSystemType(), "hdfs")) {
+                        HdfsUtil.deleteDir(outputPath);
+                    } else {
+                        File file = new File(outputPath);
+                        FileUtils.deleteDirectory(file);
+                    }
                 } catch (IllegalArgumentException e) {
                     e.printStackTrace();
                 }
@@ -83,7 +100,11 @@ public class MapReduceRefiner implements Runnable {
                 job.waitForCompletion(true);
                 //for test
                 if (i==0) {
-                    FileUtils.deleteDirectory(new File(inputPath));
+                    if (StringUtils.equalsIgnoreCase(refinderConf.getFileSystemType(), "hdfs")) {
+                        HdfsUtil.deleteDir(inputPath);
+                    } else {
+                        FileUtils.deleteDirectory(new File(inputPath));
+                    }
                 }
                 //TODO:synchronize pattern tree to database
                 System.out.println("Sleeping ...");
@@ -95,7 +116,7 @@ public class MapReduceRefiner implements Runnable {
                 inte.printStackTrace();
             }
         }
-        PatternLevelTree.getInstance().saveTreeToFile("./visualpatterntree");
-        PatternLevelTree.getInstance().backupTree("./patterntree");
+        PatternLevelTree.getInstance().saveTreeToFile(refinderConf.getVisualTreePath());
+        PatternLevelTree.getInstance().backupTree(refinderConf.getTreePath());
     }
 }

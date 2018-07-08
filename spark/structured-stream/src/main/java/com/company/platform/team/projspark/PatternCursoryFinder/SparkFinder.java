@@ -1,7 +1,6 @@
 package com.company.platform.team.projspark.PatternCursoryFinder;
 
 import com.company.platform.team.projspark.common.data.Constants;
-import com.company.platform.team.projspark.common.data.PatternLeaves;
 import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.company.platform.team.projspark.common.preprocess.Preprocessor;
 import com.google.gson.Gson;
@@ -32,6 +31,12 @@ public class SparkFinder {
     //http://timepasstechies.com/spark-dataframe-split-one-column-multiple-columns-using-split-function/
     public static void startWork(FinderServiceConfigure conf, String appName) throws Exception {
         double leafSimilarity = conf.getLeafSimilarity();
+        String logOutType = conf.getLogOutType();
+        String logOutPath = conf.getLogOutPath();
+        String logPatternOutType = conf.getLogPatternOutType();
+        String logPatternOutPath = conf.getLogPatternOutPath();
+        String projectName = conf.getProjectFilter();
+
         SparkSession spark = createSparkSession(appName);
 
         //Data input
@@ -79,27 +84,26 @@ public class SparkFinder {
         }, RowEncoder.apply(structType));
 
         // Data output downflow to index
-        //StreamingQuery queryIndex = dfLogWithLeafId
-        //        .filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
-        //        .select("projectName", "log_content")
-        //        .writeStream()
-        //        .format("json")
-        //        .option("checkpointLocation", "./outputcheckpoint")
-        //        .option("path", "./output")
-        //        .outputMode("append")
-        //        .start();
+        StreamingQuery queryIndex = dfLogWithLeafId
+                .filter(col("projectName").eqNullSafe(projectName))
+                .select("projectName", "log_content")
+                .writeStream()
+                .format("json")
+                .option("checkpointLocation", logOutPath + "-checkpoint")
+                .option("path", logOutPath)
+                .outputMode("append")
+                .start();
 
         // Data to pattern retriever;
         StreamingQuery queryPatternBase= dfLogWithLeafId
-                //.filter(col("projectName").eqNullSafe("nelo2-monitoring-alpha"))
-                .filter(col("projectName").eqNullSafe("test"))
+                .filter(col("projectName").eqNullSafe(projectName))
                 //.selectExpr("CAST (patternId as STRING) as patternId", "CAST (bodyTokens as STRING) as bodyTokens")
                 //already been string after mapFunction
                 .select(Constants.FIELD_PATTERNID, Constants.FIELD_PATTERNTOKENS)
                 .writeStream()
                 .format("json")
-                .option("checkpointLocation", "./patternbasecheckpoint")
-                .option("path", "./patternbase")
+                .option("checkpointLocation", logPatternOutPath + "-checkpoint")
+                .option("path", logPatternOutPath)
                 .outputMode("append")
                 .start();
 

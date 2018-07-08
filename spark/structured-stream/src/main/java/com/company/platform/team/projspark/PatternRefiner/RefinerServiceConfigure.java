@@ -1,19 +1,32 @@
 package com.company.platform.team.projspark.PatternRefiner;
 
+import com.company.platform.team.projspark.PatternCursoryFinder.FinderServiceConfigure;
+import com.google.gson.Gson;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
+
 /**
  * Created by Administrator on 2018/7/7 0007.
  */
 public class RefinerServiceConfigure {
+    private static final Gson gson = new Gson();
     private long initialDelaySeconds;
     private long periodSeconds;
 
+    private String fileSystemType;
     private String inputDir;
     private String inputfilter;
     private String outputDir;
 
     private int treeLevel;
-    double leafSimilarity;
-    double similarityDecayFactor;
+    private double leafSimilarity;
+    private double similarityDecayFactor;
+
+    //for test
+    private String visualTreePath;
+    private String treePath;
+    private String hadoopResource;
 
     public long getInitialDelaySeconds() {
         return initialDelaySeconds;
@@ -21,6 +34,10 @@ public class RefinerServiceConfigure {
 
     public long getPeriodSeconds() {
         return periodSeconds;
+    }
+
+    public String getFileSystemType() {
+        return fileSystemType;
     }
 
     public String getInputDir() {
@@ -45,5 +62,23 @@ public class RefinerServiceConfigure {
 
     public double getSimilarityDecayFactor() {
         return similarityDecayFactor;
+    }
+
+    public static RefinerServiceConfigure parseFromJson(String jsonFile) throws Exception {
+        BufferedReader br = new BufferedReader(new FileReader(jsonFile));
+        RefinerServiceConfigure conf = gson.fromJson(br, RefinerServiceConfigure.class);
+        return conf;
+    }
+
+    public String getVisualTreePath() {
+        return visualTreePath;
+    }
+
+    public String getTreePath() {
+        return treePath;
+    }
+
+    public String getHadoopResource() {
+        return hadoopResource;
     }
 }

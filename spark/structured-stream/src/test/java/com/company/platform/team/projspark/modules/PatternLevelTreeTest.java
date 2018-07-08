@@ -1,6 +1,6 @@
 package com.company.platform.team.projspark.modules;
 
-import com.company.platform.team.projspark.common.data.PatternLevelTree;
+import com.company.platform.team.projspark.PatternRefiner.PatternLevelTree;
 import org.junit.Test;
 
 /**
