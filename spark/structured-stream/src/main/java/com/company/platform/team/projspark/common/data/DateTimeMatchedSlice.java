@@ -1,5 +1,6 @@
 package com.company.platform.team.projspark.common.data;
 
+
 import javafx.util.Pair;
 
 /**

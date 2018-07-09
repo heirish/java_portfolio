@@ -27,6 +27,7 @@ public class RefinerServiceConfigure {
     private String visualTreePath;
     private String treePath;
     private String hadoopResource;
+    private String projectFilter;
 
     public long getInitialDelaySeconds() {
         return initialDelaySeconds;
@@ -80,5 +81,9 @@ public class RefinerServiceConfigure {
 
     public String getHadoopResource() {
         return hadoopResource;
+    }
+
+    public String getProjectFilter() {
+        return projectFilter;
     }
 }

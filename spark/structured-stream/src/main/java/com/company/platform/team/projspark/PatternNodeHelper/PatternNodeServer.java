@@ -30,7 +30,13 @@ public class PatternNodeServer {
     public void start() throws Exception {
         if (centerType == PatternNodeCenterType.HBASE
                 || centerType == PatternNodeCenterType.HDFS) {
-            new PatternNodeThriftServer(serverAddress, nThread).start();
+            PatternNodeThriftServer server = new PatternNodeThriftServer(serverAddress);
+            server.setDaemon(false);
+            server.start();
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException x) {
+            }
         }
     }
 }

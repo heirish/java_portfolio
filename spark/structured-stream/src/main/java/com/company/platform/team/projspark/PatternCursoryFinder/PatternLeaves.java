@@ -1,6 +1,9 @@
 package com.company.platform.team.projspark.PatternCursoryFinder;
 
+import com.company.platform.team.projspark.PatternNodeHelper.PatternNodeCenterType;
+import com.company.platform.team.projspark.PatternNodeHelper.PatternNodeClient;
 import com.company.platform.team.projspark.common.data.Constants;
+import com.company.platform.team.projspark.common.data.PatternLevelKey;
 import com.company.platform.team.projspark.common.data.PatternNode;
 import com.company.platform.team.projspark.common.data.PatternNodeKey;
 import com.company.platform.team.projspark.modules.FastClustering;
@@ -23,17 +26,15 @@ import java.util.UUID;
 // TODO:thread safe
 public final class PatternLeaves {
     //Map<project, Map<project-level-nodeid, PatternNode>>
+    private static PatternNodeClient client = new PatternNodeClient("localhost:7911",
+                                         PatternNodeCenterType.HDFS);
     private Map<String, Map<PatternNodeKey, PatternNode>> patternNodes;
-    private PatternTreeHelper treeHelper;
     private static PatternLeaves forest = new PatternLeaves();
     private static final Gson gson = new Gson();
 
     private PatternLeaves() {
         //TODO:recover from local checkpoint
         patternNodes = new HashMap<>();
-        treeHelper = new PatternTreeHelper();
-        Map<PatternNodeKey, PatternNode> nodes = treeHelper.getAllLeaves();
-        //TODO: split nodes by project
     }
 
     public static PatternLeaves getInstance() {
@@ -54,9 +55,10 @@ public final class PatternLeaves {
 
         int triedTimes = 0;
         PatternNode parentNode= new PatternNode(tokens);
+        PatternNodeKey nodeKey = new PatternNodeKey(projectName, 0);
         do {
-            PatternNodeKey nodeKey = addLeaf(projectName, parentNode);
-            if (nodeKey != null) {
+            long timestamp = addLeaf(nodeKey, parentNode);
+            if (timestamp > 0) {
                 return nodeKey;
             } else {
                 Map<PatternNodeKey, PatternNode> newLevelNodes = getNodes(projectName);
@@ -75,12 +77,24 @@ public final class PatternLeaves {
         return null;
     }
 
+    private long getMaxUpdatedTime(String projectName) {
+        long maxUpdateTime = 0;
+            for (Map.Entry<PatternNodeKey, PatternNode> nodeEntry : patternNodes.get(projectName).entrySet()) {
+                    maxUpdateTime = maxUpdateTime < nodeEntry.getValue().getLastupdatedTime() ?
+                            nodeEntry.getValue().getLastupdatedTime() : maxUpdateTime;
+            }
+        return maxUpdateTime;
+    }
 
-    public PatternNodeKey addLeaf(String projectName, PatternNode node) {
+
+    public long addLeaf(PatternNodeKey nodeKey, PatternNode node) {
+        long updatedTimestamp= 0;
         try {
-            String nodeId = UUID.randomUUID().toString().replace("-", "");
-            PatternNodeKey nodeKey = new PatternNodeKey(projectName, 0);
-            if (treeHelper.addNodesToCenter(nodeKey, node)) {
+            String projectName = nodeKey.getProjectName();
+            long localLastUpdatedTime = getMaxUpdatedTime(projectName);
+            updatedTimestamp = client.addNode(nodeKey, node, localLastUpdatedTime);
+            node.setLastupdatedTime(updatedTimestamp);
+            if (updatedTimestamp > 0) {
                 if (patternNodes.containsKey(nodeKey.getProjectName())) {
                     patternNodes.get(projectName).put(nodeKey, node);
                 } else {
@@ -88,19 +102,26 @@ public final class PatternLeaves {
                     nodes.put(nodeKey, node);
                     patternNodes.put(projectName, nodes);
                 }
-                saveToFile("tree/patternLeaves");
-                return nodeKey;
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
+        return updatedTimestamp;
     }
 
     public Map<PatternNodeKey, PatternNode> getNodes(String projectName) {
-        //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        if (patternNodes.containsKey(projectName)) {
+        if (!patternNodes.containsKey(projectName)) {
+            try {
+                Map<PatternNodeKey, PatternNode> nodesFromCenter = client.getNodes(projectName, 0);
+                if (nodesFromCenter != null) {
+                    patternNodes.put(projectName, nodesFromCenter);
+                }
+                nodes.putAll(patternNodes.get(projectName));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else {
             nodes.putAll(patternNodes.get(projectName));
         }
         return nodes;
@@ -141,7 +162,6 @@ public final class PatternLeaves {
         }
         return stringBuilder.toString();
     }
-
 
     public void saveToFile(String fileName) {
         try {

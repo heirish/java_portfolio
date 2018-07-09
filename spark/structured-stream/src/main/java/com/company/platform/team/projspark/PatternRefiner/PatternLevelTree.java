@@ -8,6 +8,8 @@ import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
@@ -20,16 +22,20 @@ import java.util.*;
 public final class PatternLevelTree {
     //Map<project-level, Map<project-level-nodeid, PatternNode>>
     private Map<PatternLevelKey, Map<PatternNodeKey, PatternNode>> patternNodes;
-    private PatternTreeHelper treeHelper;
     private static PatternLevelTree forest = new PatternLevelTree();
     private static final Gson gson = new Gson();
+
+
+    public static PatternLevelTree getInstance() {
+        return forest;
+    }
 
     private PatternLevelTree() {
         //TODO:recover from local checkpoint
         patternNodes = new HashMap<>();
-        treeHelper = new PatternTreeHelper();
         try {
-            Map<PatternNodeKey, PatternNode> nodes = treeHelper.getAllNodes();
+            Map<PatternNodeKey, PatternNode> nodes = readFromFile("tree/patternLeaves");
+            System.out.println("get " + nodes.size() + " nodes from file tree/patternLeaves");
             //split nodes by LevelKey
             SortedSet<PatternNodeKey> keys = new TreeSet<>(nodes.keySet());
             PatternLevelKey lastLevelKey = null;
@@ -43,14 +49,41 @@ public final class PatternLevelTree {
                 projectLevelNodes.put(key, nodes.get(key));
             }
             //The last
-            patternNodes.put(keys.last().getLevelKey(), projectLevelNodes);
+            if (keys.size() > 0 && projectLevelNodes != null && projectLevelNodes.size() > 0) {
+                patternNodes.put(keys.last().getLevelKey(), projectLevelNodes);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public static PatternLevelTree getInstance() {
-        return forest;
+    private Map<PatternNodeKey, PatternNode> readFromFile(String fileName) throws Exception {
+        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(fileName))) {
+            String line;
+            while ((line = br.readLine()) != null) {
+                try {
+                    Map<String, String> fields = gson.fromJson(line, Map.class);
+                    PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
+                    List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
+                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    List<String> representTokens = Arrays.asList(fields.get(Constants.FIELD_REPRESENTTOKENS)
+                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    PatternNode node = new PatternNode(representTokens);
+                    node.updatePatternTokens(patternTokens);
+                    String parentKeyString = fields.get("parentId");
+                    if (!StringUtils.isEmpty(parentKeyString)) {
+                        node.setParent(PatternNodeKey.fromString(parentKeyString));
+                    }
+                    nodes.put(key, node);
+                } catch (Exception e) {
+                    //e.printStackTrace();
+                }
+            }
+        } catch (Exception e) {
+            //e.printStackTrace();
+        }
+        return nodes;
     }
 
     //TODO:input a distance function
@@ -134,6 +167,7 @@ public final class PatternLevelTree {
     public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
         //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+        System.out.println("get levelKey from client: " + levelKey.toString());
         if (patternNodes.containsKey(levelKey)) {
             nodes.putAll(patternNodes.get(levelKey));
         }
@@ -243,10 +277,10 @@ public final class PatternLevelTree {
         return stringBuilder.toString();
     }
 
-    public void saveTreeToFile(String fileName) {
+    public void saveTreeToFile(String fileName, String projectName) {
         try {
             FileWriter fw = new FileWriter(fileName);
-            String treeString = visualize();
+            String treeString = StringUtils.isEmpty(projectName) ?  visualize() : visualize(projectName);
             System.out.println(treeString);
             fw.write(treeString);
             fw.close();

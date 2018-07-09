@@ -55,11 +55,13 @@ public class CommonUtils {
         File dirFile = new File(sourceDir);
         FileFilter filter = new RegexFileFilter(filterRegex);
         File[] files = dirFile.listFiles(filter);
+        if (files == null) {
+            return 0;
+        }
 
         int succeedFileCount = 0;
         try {
             File latestFile = lastNstFileModified(sourceDir, 1, filterRegex);
-
             for (File file : files) {
                if (file.lastModified() < latestFile.lastModified()) {
                    try {

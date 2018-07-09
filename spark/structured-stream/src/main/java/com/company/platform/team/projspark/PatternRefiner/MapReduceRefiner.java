@@ -116,7 +116,7 @@ public class MapReduceRefiner implements Runnable {
                 inte.printStackTrace();
             }
         }
-        PatternLevelTree.getInstance().saveTreeToFile(refinderConf.getVisualTreePath());
+        PatternLevelTree.getInstance().saveTreeToFile(refinderConf.getVisualTreePath(), refinderConf.getProjectFilter());
         PatternLevelTree.getInstance().backupTree(refinderConf.getTreePath());
     }
 }

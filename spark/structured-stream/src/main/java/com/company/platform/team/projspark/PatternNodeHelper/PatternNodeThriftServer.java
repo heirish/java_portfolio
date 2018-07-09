@@ -18,34 +18,39 @@ import java.util.concurrent.Executors;
 /**
  * Created by Administrator on 2018/7/7 0007.
  */
-public class PatternNodeThriftServer {
+public class PatternNodeThriftServer extends Thread {
     private String host;
     private int port;
-    private int nThread;
 
-    public PatternNodeThriftServer(String ipPortAddress, int nThread) throws Exception{
+    public PatternNodeThriftServer(String ipPortAddress) throws Exception {
         String[] items = ipPortAddress.split(":");
         try {
             this.host = items[0];
             this.port = Integer.parseInt(items[1]);
-            this.nThread = nThread;
         } catch (Exception e) {
             throw new IllegalArgumentException("invalid ipPortAdress for PatternNodeThriftServer");
         }
     }
 
-    public void start() throws Exception{
-        InetSocketAddress bindAddr = new InetSocketAddress(host, port);
-        TServerSocket  serverTransport = new TServerSocket(bindAddr);
-        TServer.Args args = new TServer.Args(serverTransport);
-        TProcessor process = new PatternCenterThriftService.Processor(
-                new PatternCenterThriftServiceImpl());
-        TBinaryProtocol.Factory portFactory = new TBinaryProtocol.Factory(true, true);
-        args.processor(process);
-        args.protocolFactory(portFactory);
+    public void run() {
+        try {
+            InetSocketAddress bindAddr = new InetSocketAddress(host, port);
+            TServerSocket serverTransport = new TServerSocket(bindAddr);
+            TServer.Args args = new TServer.Args(serverTransport);
+            TProcessor process = new PatternCenterThriftService.Processor(
+                    new PatternCenterThriftServiceImpl());
+            TBinaryProtocol.Factory portFactory = new TBinaryProtocol.Factory(true, true);
+            args.processor(process);
+            args.protocolFactory(portFactory);
 
-        TServer server = new TSimpleServer(args);
-        server.serve();
+            TServer server = new TSimpleServer(args);
+            System.out.println("start TServer");
+            server.serve();
+            System.out.println("TServer started....., on port :" + port);
+        } catch (Exception e) {
+            System.out.println(e);
+            throw new RuntimeException(e);
+        }
     }
 
     public void startThreadServer() throws Exception {
@@ -59,7 +64,7 @@ public class PatternNodeThriftServer {
         //使用高密度二进制协议
         TProtocolFactory proFactory = new TCompactProtocol.Factory();
         args.processor(process);
-        args.protocolFactory(proFactory));
+        args.protocolFactory(proFactory);
         args.transportFactory(transportFactory);
 
         TServer server = new TThreadedSelectorServer(args);

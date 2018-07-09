@@ -132,4 +132,27 @@ public class ListUtilTest {
             e.printStackTrace();
         }
     }
+
+    @Test
+    public void threadDaemonTest() {
+        System.out.println("main thread entry");
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    System.out.println(2);
+                }
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("main thread exit.");
+    }
 }

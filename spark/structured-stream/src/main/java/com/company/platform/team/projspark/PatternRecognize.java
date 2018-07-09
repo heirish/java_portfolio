@@ -2,6 +2,8 @@ package com.company.platform.team.projspark;
 
 import com.company.platform.team.projspark.PatternCursoryFinder.FinderService;
 import com.company.platform.team.projspark.PatternCursoryFinder.FinderServiceConfigure;
+import com.company.platform.team.projspark.PatternNodeHelper.PatternNodeCenterType;
+import com.company.platform.team.projspark.PatternNodeHelper.PatternNodeServer;
 import com.company.platform.team.projspark.PatternRefiner.RefinerService;
 import com.company.platform.team.projspark.PatternRefiner.RefinerServiceConfigure;
 import com.google.gson.Gson;
@@ -45,6 +47,13 @@ public class PatternRecognize{
     }
 
     private static void startPatternRefinerService(String jsonConfFile) throws Exception {
+         new PatternNodeServer("localhost:7911",
+                    PatternNodeCenterType.HDFS, 1).start();
+         try {
+            Thread.sleep(3000);
+        } catch (InterruptedException x) {
+        }
+
         RefinerServiceConfigure conf = RefinerServiceConfigure.parseFromJson(jsonConfFile);
         RefinerService refinerService = new RefinerService(conf, "patternretriever");
         refinerService.run();
