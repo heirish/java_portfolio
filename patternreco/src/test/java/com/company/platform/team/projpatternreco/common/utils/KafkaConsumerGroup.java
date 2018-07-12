@@ -17,10 +17,7 @@ public class KafkaConsumerGroup {
 
 //    @Test
 //    public void getAllComsumerGroups() {
-//        ConsumerGroupCommand.main(new String[]{"--new-consumer", "--bootstrap-server","10.113.120.195:9092","--list"});
-//        //ConsumerGroupCommand.main(new String[]{"--zookeeper","10.113.253.32:10013","--list"});
 //        //ConsumerGroupCommand.ConsumerGroupCommandOptions opts = new ConsumerGroupCommand
-//        //        .ConsumerGroupCommandOptions(new String[] {"--bootstrap-server","10.113.120.195:9092","--list"});
 //        //ConsumerGroupCommand.KafkaConsumerGroupService service = new ConsumerGroupCommand
 //        //        .KafkaConsumerGroupService(opts);
 //        //System.out.println(service.listGroups());
