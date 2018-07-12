@@ -1,0 +1,30 @@
+{
+    "kafka": {
+        "fetchMega": 64,
+        "brokers": "10.93.130.93:9092",
+        "consumeFromLatest": false,
+        "consumeFromEarliest": false
+    },
+    "topics":{
+        "normalLog": "normal-logs",
+        "crashLog": "crash-logs",
+        "logWithPatternId": "output-test"
+    },
+    "parallelism":{
+      "nelo2-normal-logs-spout": 1,
+      "nelo2-crash-logs-spout": 1,
+
+      "PatternCursoryFinderBolt": 10,
+      "PatternRefinerBolt0": 8,
+      "PatternRefinerBolt1": 8,
+      "PatternRefinerBolt2": 8,
+      "PatternRefinerBolt3": 8,
+      "PatternRefinerBolt4": 6,
+      "PatternRefinerBolt5": 6,
+      "PatternRefinerBolt6": 6,
+      "PatternRefinerBolt7": 4,
+      "PatternRefinerBolt8": 2,
+      "PatternRefinerBolt9": 1,
+      "output-testBolt":10
+    }
+ }
