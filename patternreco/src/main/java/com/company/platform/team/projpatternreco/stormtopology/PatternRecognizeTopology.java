@@ -46,45 +46,41 @@ public class PatternRecognizeTopology {
         String crashLogTopicSpout = crashLogTopic + "-spout";
         topologyBuilder.setSpout(normalLogTopicSpout,
                 createKafkaSpout(normalLogTopic), config.getParallelismCount(normalLogTopicSpout));
-        topologyBuilder.setSpout(crashLogTopic,
-                createKafkaSpout(crashLogTopic), config.getParallelismCount(crashLogTopicSpout));
+        //topologyBuilder.setSpout(crashLogTopic,
+        //        createKafkaSpout(crashLogTopic), config.getParallelismCount(crashLogTopicSpout));
 
         //Bolts
-        String cursoryFinderBoltName = PatternCursoryFinderBolt.class.toString();
-        topologyBuilder.setBolt(cursoryFinderBoltName, new PatternCursoryFinderBolt(),
+        String cursoryFinderBoltName = "PatternCursoryFinderBolt";
+        topologyBuilder.setBolt(cursoryFinderBoltName, new PatternCursoryFinderBolt(config.getLeafSimilarity()),
                 config.getParallelismCount(cursoryFinderBoltName))
-                .shuffleGrouping(normalLogTopicSpout)
-                .shuffleGrouping(crashLogTopic);
+                .shuffleGrouping(normalLogTopicSpout);
+               // .shuffleGrouping(crashLogTopic);
         String lastBoltName = cursoryFinderBoltName;
+        //for (int i=0; i<10; i++) {
         for (int i=0; i<10; i++) {
-            String boltName = PatternRefinerBolt.class.toString() + i;
-            if (i==0) {
-                topologyBuilder.setBolt(boltName, new PatternRefinerBolt(i, 0.7),
-                        config.getParallelismCount(boltName)).shuffleGrouping(lastBoltName, Constants.PATTERN_UNMERGED_STREAMID);
-            } else {
-                topologyBuilder.setBolt(boltName, new PatternRefinerBolt(i, 0.7),
-                        config.getParallelismCount(boltName)).shuffleGrouping(lastBoltName);
-            }
+            String boltName = "PatternRefinerBolt" + i;
+            topologyBuilder.setBolt(boltName, new PatternRefinerBolt(i, config.getLeafSimilarity()),
+                    config.getParallelismCount(boltName)).shuffleGrouping(lastBoltName, Constants.PATTERN_UNMERGED_STREAMID);
             lastBoltName = boltName;
         }
 
         //output cursorFinder to kafka or else where
-        Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
-        props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
-        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.naver.nelo.symbolicator.bolt.RoundRobinPartitioner");
+        //Properties props = new Properties();
+        //props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
+        //props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
+        //props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
+        //props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
+        //props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
+        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.naver.nelo.symbolicator.bolt.RoundRobinPartitioner");
 
-        // create KafkaBolt
-        String outputTopic = config.getConfigMap("topics").get("logWithPatternId").toString();
-        KafkaBolt outputKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(outputTopic))
-                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
-                .withProducerProperties(props);
-        topologyBuilder.setBolt(outputTopic + "Bolt", outputKafkaBolt,
-                config.getParallelismCount(outputTopic+"Bolt"))
-                .shuffleGrouping(cursoryFinderBoltName, Constants.LOG_OUT_STREAMID);
+        //create KafkaBolt
+        //String outputTopic = config.getConfigMap("topics").get("logWithPatternId").toString();
+        //KafkaBolt outputKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(outputTopic))
+        //        .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
+        //        .withProducerProperties(props);
+        //topologyBuilder.setBolt(outputTopic + "Bolt", outputKafkaBolt,
+        //        config.getParallelismCount(outputTopic+"Bolt"))
+        //        .shuffleGrouping(cursoryFinderBoltName, Constants.LOG_OUT_STREAMID);
 
         return topologyBuilder;
     }
@@ -148,6 +144,8 @@ public class PatternRecognizeTopology {
 
         if (commands.hasOption("c")) {
             confFile = commands.getOptionValue("c");
+        } else {
+            confFile = "PatternRecognize.json";
         }
         if (commands.hasOption("n")) {
             topologyName = commands.getOptionValue("n");

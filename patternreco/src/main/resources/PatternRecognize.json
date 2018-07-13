@@ -11,8 +11,8 @@
         "logWithPatternId": "output-test"
     },
     "parallelism":{
-      "nelo2-normal-logs-spout": 1,
-      "nelo2-crash-logs-spout": 1,
+      "normal-logs-spout": 1,
+      "crash-logs-spout": 1,
 
       "PatternCursoryFinderBolt": 10,
       "PatternRefinerBolt0": 8,
@@ -26,5 +26,8 @@
       "PatternRefinerBolt8": 2,
       "PatternRefinerBolt9": 1,
       "output-testBolt":10
-    }
+    },
+  "patternreco":{
+    "leafSimilarity": 0.9
+  }
  }

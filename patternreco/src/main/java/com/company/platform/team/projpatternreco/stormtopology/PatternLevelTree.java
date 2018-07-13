@@ -12,6 +12,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Created by admin on 2018/6/29.
@@ -21,15 +23,21 @@ import java.util.*;
 public final class PatternLevelTree {
     //Map<project-level, Map<project-level-nodeid, PatternNode>>
     private Map<PatternLevelKey, Map<PatternNodeKey, PatternNode>> patternNodes;
-    private static PatternLevelTree forest = new PatternLevelTree();
+    ReadWriteLock lock;
+    private static PatternLevelTree forest;
     private static final Gson gson = new Gson();
 
 
     public static synchronized PatternLevelTree getInstance() {
+        if (forest == null) {
+            forest = new PatternLevelTree();
+        }
         return forest;
     }
 
     private PatternLevelTree() {
+        lock = new ReentrantReadWriteLock();
+
         //TODO:recover from local checkpoint
         patternNodes = new HashMap<>();
         try {
@@ -121,19 +129,23 @@ public final class PatternLevelTree {
     }
 
     public long updateNode(PatternNodeKey nodeKey, PatternNode node) {
-        PatternLevelKey levelKey = nodeKey.getLevelKey();
-        if (!patternNodes.containsKey(levelKey)
-                || !patternNodes.get(levelKey).containsKey(nodeKey)) {
-            return 0;
-        }
+        lock.writeLock().lock();
+        try {
+            PatternLevelKey levelKey = nodeKey.getLevelKey();
+            if (!patternNodes.containsKey(levelKey)
+                    || !patternNodes.get(levelKey).containsKey(nodeKey)) {
+                return 0;
+            }
 
-        node.setLastupdatedTime(System.currentTimeMillis());
-        patternNodes.get(levelKey).put(nodeKey, node);
-        return node.getLastupdatedTime();
+            node.setLastupdatedTime(System.currentTimeMillis());
+            patternNodes.get(levelKey).put(nodeKey, node);
+            return node.getLastupdatedTime();
+        } finally {
+            lock.writeLock().unlock();
+        }
     }
 
     public long addNode(PatternNodeKey nodeKey, PatternNode node, long clientlastUpdatedTime) {
-
         long maxUpdateTime = getMaxUpdatedTime(nodeKey.getProjectName(),
                 nodeKey.getLevel());
         //client need to synchronize
@@ -142,16 +154,20 @@ public final class PatternLevelTree {
         }
         node.setLastupdatedTime(System.currentTimeMillis());
 
-        PatternLevelKey levelKey = nodeKey.getLevelKey();
-        if (patternNodes.containsKey(nodeKey.getLevelKey())) {
-            patternNodes.get(levelKey).put(nodeKey, node);
-        } else {
-            Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-            nodes.put(nodeKey, node);
-            patternNodes.put(levelKey, nodes);
+        lock.writeLock().lock();
+        try {
+            PatternLevelKey levelKey = nodeKey.getLevelKey();
+            if (patternNodes.containsKey(nodeKey.getLevelKey())) {
+                patternNodes.get(levelKey).put(nodeKey, node);
+            } else {
+                Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+                nodes.put(nodeKey, node);
+                patternNodes.put(levelKey, nodes);
+            }
+            return node.getLastupdatedTime();
+        } finally {
+            lock.writeLock().unlock();
         }
-
-        return node.getLastupdatedTime();
     }
 
     public PatternNode getNode(PatternNodeKey nodeKey) {
@@ -167,10 +183,15 @@ public final class PatternLevelTree {
         //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         System.out.println("get levelKey from client: " + levelKey.toString());
-        if (patternNodes.containsKey(levelKey)) {
-            nodes.putAll(patternNodes.get(levelKey));
+        lock.readLock().lock();
+        try {
+            if (patternNodes.containsKey(levelKey)) {
+                nodes.putAll(patternNodes.get(levelKey));
+            }
+            return nodes;
+        } finally {
+            lock.readLock().unlock();
         }
-        return nodes;
     }
 
     public Map<PatternNodeKey, PatternNode> getNodesNewerThan(String projectName,
@@ -178,47 +199,67 @@ public final class PatternLevelTree {
                                                               long lastUpdatedTime) {
         Map<PatternNodeKey, PatternNode> returnNodes = new HashMap<>();
         PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
-        if (patternNodes.containsKey(levelKey)) {
-            for (Map.Entry<PatternNodeKey, PatternNode> entry : patternNodes.get(levelKey).entrySet()) {
-                if (entry.getValue().getLastupdatedTime() >= lastUpdatedTime) {
-                    returnNodes.put(entry.getKey(), entry.getValue());
+        lock.readLock().lock();
+        try {
+            if (patternNodes.containsKey(levelKey)) {
+                for (Map.Entry<PatternNodeKey, PatternNode> entry : patternNodes.get(levelKey).entrySet()) {
+                    if (entry.getValue().getLastupdatedTime() >= lastUpdatedTime) {
+                        returnNodes.put(entry.getKey(), entry.getValue());
+                    }
                 }
             }
+            return returnNodes;
+        } finally {
+            lock.readLock().unlock();
         }
-        return returnNodes;
     }
 
     public Set<String> getAllProjectsName() {
        Set<String> projectList = new HashSet<>();
-       for (PatternLevelKey key : patternNodes.keySet()) {
+       lock.readLock().lock();
+       try {
+           for (PatternLevelKey key : patternNodes.keySet()) {
                projectList.add(key.getProjectName());
+           }
+           return projectList;
+       } finally {
+           lock.readLock().unlock();
        }
-       return projectList;
     }
 
     public int getProjectMaxLevel(String name) {
         int maxLevel = -1;
-        for (PatternLevelKey key : patternNodes.keySet()) {
-            if (StringUtils.equals(key.getProjectName(), name)) {
-                int level = key.getLevel();
-                maxLevel = level > maxLevel ? level : maxLevel;
+        lock.readLock().lock();
+        try {
+            for (PatternLevelKey key : patternNodes.keySet()) {
+                if (StringUtils.equals(key.getProjectName(), name)) {
+                    int level = key.getLevel();
+                    maxLevel = level > maxLevel ? level : maxLevel;
+                }
             }
+            return maxLevel;
+        } finally {
+            lock.readLock().unlock();
         }
-        return maxLevel;
     }
 
     private long getMaxUpdatedTime(String projectName, int nodeLevel) {
         long maxUpdateTime = 0;
         PatternLevelKey levelKey = new PatternLevelKey(projectName, nodeLevel);
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
-            for (Map.Entry<PatternNodeKey, PatternNode> nodeEntry : entry.getValue().entrySet()) {
-                if (levelKey.equals(nodeEntry.getKey().getLevelKey())) {
-                    maxUpdateTime = maxUpdateTime < nodeEntry.getValue().getLastupdatedTime() ?
-                            nodeEntry.getValue().getLastupdatedTime() : maxUpdateTime;
+        lock.readLock().lock();
+        try {
+            for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+                for (Map.Entry<PatternNodeKey, PatternNode> nodeEntry : entry.getValue().entrySet()) {
+                    if (levelKey.equals(nodeEntry.getKey().getLevelKey())) {
+                        maxUpdateTime = maxUpdateTime < nodeEntry.getValue().getLastupdatedTime() ?
+                                nodeEntry.getValue().getLastupdatedTime() : maxUpdateTime;
+                    }
                 }
             }
+            return maxUpdateTime;
+        }finally {
+            lock.readLock().unlock();
         }
-        return maxUpdateTime;
     }
 
     public String visualize() {
@@ -245,7 +286,8 @@ public final class PatternLevelTree {
             }
             System.out.println(String.format("found %s nodes for level %s.", nodes.size(), i));
             for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
-                String patternString = entry.getKey().toString() + " : " + String.join("", entry.getValue().getPatternTokens());
+                String patternString = entry.getKey().toString() + " : " + String.join("", entry.getValue().getPatternTokens())
+                        + ", lastupdatedtime: " + entry.getValue().getLastupdatedTime();
                 //if nodes is not the highest level and don't have parent, drop it
                 VisualTreeNode parent = null;
                 if (i == maxLevel) {
@@ -265,15 +307,20 @@ public final class PatternLevelTree {
 
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
-            stringBuilder.append(entry.getKey().toString());
-            stringBuilder.append(System.getProperty("line.separator"));
-            for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
-                stringBuilder.append(String.format("key: %s\tvalue:%s", entryNode.getKey().toString(), entryNode.getValue().toString()));
+        lock.readLock().lock();
+        try {
+            for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+                stringBuilder.append(entry.getKey().toString());
                 stringBuilder.append(System.getProperty("line.separator"));
+                for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
+                    stringBuilder.append(String.format("key: %s\tvalue:%s", entryNode.getKey().toString(), entryNode.getValue().toString()));
+                    stringBuilder.append(System.getProperty("line.separator"));
+                }
             }
+            return stringBuilder.toString();
+        } finally {
+            lock.readLock().unlock();
         }
-        return stringBuilder.toString();
     }
 
     public void saveTreeToFile(String fileName, String projectName) {
@@ -291,25 +338,30 @@ public final class PatternLevelTree {
     public void backupTree(String fileName) {
         try {
             FileWriter fw = new FileWriter(fileName);
-            for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
-                for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
-                    Map<String, String> jsonItems = new HashMap<>();
-                    jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
-                    jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                            String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
-                    jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                            String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
-                    if (entryNode.getValue().hasParent()) {
-                        jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
-                    } else {
-                        jsonItems.put("parentId", "");
-                    }
-                    try {
-                        fw.write(gson.toJson(jsonItems) + System.getProperty("line.separator"));
-                    } catch (IOException e) {
-                        e.printStackTrace();
+            lock.readLock().lock();
+            try {
+                for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+                    for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
+                        Map<String, String> jsonItems = new HashMap<>();
+                        jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
+                        jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
+                                String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
+                        jsonItems.put(Constants.FIELD_PATTERNTOKENS,
+                                String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
+                        if (entryNode.getValue().hasParent()) {
+                            jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
+                        } else {
+                            jsonItems.put("parentId", "");
+                        }
+                        try {
+                            fw.write(gson.toJson(jsonItems) + System.getProperty("line.separator"));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
+            } finally {
+                lock.readLock().unlock();
             }
             fw.close();
         } catch (IOException e) {

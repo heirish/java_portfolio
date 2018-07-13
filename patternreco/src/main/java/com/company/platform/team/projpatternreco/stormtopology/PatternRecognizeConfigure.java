@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Map;
 import java.util.Objects;
 
@@ -16,7 +17,7 @@ import java.util.Objects;
  * Created by admin on 2018/7/12.
  */
 public class PatternRecognizeConfigure {
-    private static final Logger logger = LoggerFactory.getLogger("proguard");
+    private static final Logger logger = LoggerFactory.getLogger("");
     private static final Gson gson = new Gson();
     private final Config stormConf;
     private static PatternRecognizeConfigure instance;
@@ -28,11 +29,13 @@ public class PatternRecognizeConfigure {
         Map confMap = null;
         try {
             if (runningType == RunningType.LOCAL) {
-                confMap = gson.fromJson(new JsonReader(new FileReader(
-                                Objects.requireNonNull(this.getClass().getClassLoader().getResource(fileName)).getFile())),
-                        this.getClass());
+                //confMap = gson.fromJson(new JsonReader(new FileReader(
+                //                Objects.requireNonNull(this.getClass().getClassLoader().getResource(fileName)).getFile())),
+                confMap = gson.fromJson(new InputStreamReader(
+                                Objects.requireNonNull(this.getClass().getClassLoader().getResourceAsStream(fileName))),
+                        Map.class);
             } else {
-                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), this.getClass());
+                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Map.class);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -105,6 +108,10 @@ public class PatternRecognizeConfigure {
     // for worker/acker
     public Integer getParallelismCount(String parallelismBolt) {
         return getIntegerValueFromMap("parallelismCount", parallelismBolt, DEFAULT_WORKERS);
+    }
+
+    public Double getLeafSimilarity() {
+        return getDoubleValueFromMap("patternreco", "leafSimilarity", 0.9);
     }
 
     public String getKafkaBrokerHosts() {

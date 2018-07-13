@@ -23,7 +23,11 @@ public class PatternCursoryFinderBolt implements IRichBolt {
     private OutputCollector collector;
     private Gson gson;
     private boolean replayTuple;
+    private double leafSimilarity;
 
+    public PatternCursoryFinderBolt(double leafSimilarity) {
+        this.leafSimilarity = leafSimilarity;
+    }
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
@@ -41,7 +45,7 @@ public class PatternCursoryFinderBolt implements IRichBolt {
             String body = logMap.get(Constants.FIELD_BODY);
             List<String> bodyTokens = Preprocessor.transform(body);
             PatternNodeKey nodeKey = PatternLevelTree.getInstance()
-                    .getParentNodeId(bodyTokens, projectName, 0, 0.3);
+                    .getParentNodeId(bodyTokens, projectName, 0, 1 - leafSimilarity);
 
             logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
             collector.emit(Constants.LOG_OUT_STREAMID, new Values(logMap));
@@ -49,7 +53,7 @@ public class PatternCursoryFinderBolt implements IRichBolt {
             Map<String, String> unmergedMap = new HashMap<>();
             unmergedMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
             unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_NODE_KEY_DELIMITER, bodyTokens));
-            collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(unmergedMap));
+            collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(gson.toJson(unmergedMap)));
         } catch (Exception e) {
             collector.reportError(e);
             if (replayTuple) {

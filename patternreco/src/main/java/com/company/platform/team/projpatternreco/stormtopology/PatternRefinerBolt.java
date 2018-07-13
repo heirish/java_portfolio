@@ -31,7 +31,6 @@ public class PatternRefinerBolt implements IRichBolt {
 
     public PatternRefinerBolt(int level, double leafSimlarity) {
         this.patternLevel = level;
-        this.gson = new Gson();
         this.replayTuple = true;
         this.maxDist = 1 - leafSimlarity * Math.pow(leafSimlarity, level+1);
     }
@@ -39,6 +38,7 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
+        this.gson = new Gson();
     }
 
     @Override
@@ -56,18 +56,21 @@ public class PatternRefinerBolt implements IRichBolt {
             parentNode.updatePatternTokens(mergedTokens);
             PatternNodeKey grandNodeKey = null;
             if (!parentNode.hasParent()) {
-                parentNodeKey = PatternLevelTree.getInstance()
+                grandNodeKey = PatternLevelTree.getInstance()
                         .getParentNodeId(mergedTokens, parentNodeKey.getProjectName(), parentNodeKey.getLevel()+1, maxDist);
                 parentNode.setParent(grandNodeKey);
+                if (patternLevel == 9) {
+                    PatternLevelTree.getInstance().saveTreeToFile("tree/visualpatterntree", "");
+                    PatternLevelTree.getInstance().backupTree("tree/patterntree");
+                }
             }
-            grandNodeKey = parentNode.getParentId();
             //update the tree node(parent Id and pattern) by key
             PatternLevelTree.getInstance().updateNode(parentNodeKey, parentNode);
 
             Map<String, String> unmergedMap = new HashMap<>();
             unmergedMap.put(Constants.FIELD_PATTERNID, grandNodeKey.toString());
             unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_NODE_KEY_DELIMITER,mergedTokens));
-            collector.emit("", new Values(unmergedMap));
+            collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(gson.toJson(unmergedMap)));
         } catch (Exception e) {
             collector.reportError(e);
             if (replayTuple) {
@@ -86,8 +89,7 @@ public class PatternRefinerBolt implements IRichBolt {
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-        outputFieldsDeclarer.declareStream("", new Fields("value"));
-
+        outputFieldsDeclarer.declareStream(Constants.PATTERN_UNMERGED_STREAMID, new Fields("value"));
     }
 
     @Override
