@@ -76,7 +76,7 @@ public class SparkFinder {
                     fields.put("processTimeCost",
                             String.format("%s", TimeUnit.NANOSECONDS.toMicros(end - start)));
                     return RowFactory.create(projectName, gson.toJson(fields),
-                            leafId, String.join(Constants.PATTERN_NODE_KEY_DELIMITER, tokens));
+                            leafId, String.join(Constants.PATTERN_TOKENS_DELIMITER, tokens));
                 } else {
                     return RowFactory.create(projectName, s, "", "");
                 }

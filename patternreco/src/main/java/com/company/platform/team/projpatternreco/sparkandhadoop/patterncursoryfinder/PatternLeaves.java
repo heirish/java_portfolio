@@ -145,9 +145,9 @@ public final class PatternLeaves {
                 Map<String, String> jsonItems = new HashMap<>();
                 jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
                 jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getRepresentTokens()));
+                        String.join(Constants.PATTERN_TOKENS_DELIMITER, entryNode.getValue().getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, entryNode.getValue().getPatternTokens()));
+                        String.join(Constants.PATTERN_TOKENS_DELIMITER, entryNode.getValue().getPatternTokens()));
                 if (entryNode.getValue().hasParent()) {
                     jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
                 } else {

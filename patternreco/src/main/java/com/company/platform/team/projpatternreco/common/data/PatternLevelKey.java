@@ -55,10 +55,6 @@ public class PatternLevelKey {
         return this.projectName;
     }
 
-    protected static String getDelimiter() {
-        return DELIMITER;
-    }
-
     public String toString() {
         return String.format("%s%s%s",
                 this.projectName, DELIMITER,

@@ -1,10 +1,11 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.Constants;
-import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
+import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -13,11 +14,11 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static com.company.platform.team.projpatternreco.sparkandhadoop.patternerfiner.MapReduceRefinerWorker.retrievePattern;
 
 /**
  * Created by admin on 2018/7/12.
@@ -48,25 +49,20 @@ public class PatternRefinerBolt implements IRichBolt {
             Map<String, String> logMap = gson.fromJson(log, Map.class);
             String parentNodeId = logMap.get(Constants.FIELD_PATTERNID);
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
-                    .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    .split(Constants.PATTERN_TOKENS_DELIMITER));
 
             PatternNodeKey parentNodeKey = PatternNodeKey.fromString(parentNodeId);
-            PatternNode parentNode = PatternLevelTree.getInstance().getNode(parentNodeKey);
-            List<String> mergedTokens = retrievePattern(parentNode.getPatternTokens(), patternTokens);
-            parentNode.updatePatternTokens(mergedTokens);
-            PatternNodeKey grandNodeKey = null;
-            if (!parentNode.hasParent()) {
-                parentNodeKey = PatternLevelTree.getInstance()
-                        .getParentNodeId(mergedTokens, parentNodeKey.getProjectName(), parentNodeKey.getLevel()+1, maxDist);
-                parentNode.setParent(grandNodeKey);
-            }
-            grandNodeKey = parentNode.getParentId();
-            //update the tree node(parent Id and pattern) by key
-            PatternLevelTree.getInstance().updateNode(parentNodeKey, parentNode);
+            Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodesCenter.getInstance()
+                    .mergePatternToNode(parentNodeKey, patternTokens, maxDist);
 
+            if (this.patternLevel == 10) {
+                saveTreeToFile("tree/visualpatterntree", "");
+                backupTree("tree/patterntree");
+            }
             Map<String, String> unmergedMap = new HashMap<>();
-            unmergedMap.put(Constants.FIELD_PATTERNID, grandNodeKey.toString());
-            unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_NODE_KEY_DELIMITER,mergedTokens));
+            unmergedMap.put(Constants.FIELD_PATTERNID, nextLevelTuple.getLeft().toString());
+            unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(
+                    Constants.PATTERN_TOKENS_DELIMITER,nextLevelTuple.getRight()));
             collector.emit("", new Values(unmergedMap));
         } catch (Exception e) {
             collector.reportError(e);
@@ -93,5 +89,33 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return null;
+    }
+
+    public void saveTreeToFile(String fileName, String projectName) {
+        try {
+            FileWriter fw = new FileWriter(fileName);
+            String treeString = StringUtils.isEmpty(projectName)
+                    ? PatternNodesCenter.getInstance().visualize()
+                    : PatternNodesCenter.getInstance().visualize(projectName);
+            System.out.println(treeString);
+            fw.write(treeString);
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void backupTree(String fileName) {
+        try {
+            FileWriter fw = new FileWriter(fileName);
+                try {
+                    fw.write(PatternNodesCenter.getInstance().toString());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            fw.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

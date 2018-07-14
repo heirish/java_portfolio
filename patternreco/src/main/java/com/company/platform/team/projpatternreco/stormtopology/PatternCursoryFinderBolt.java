@@ -1,6 +1,7 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.google.gson.Gson;
@@ -39,16 +40,17 @@ public class PatternCursoryFinderBolt implements IRichBolt {
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String body = logMap.get(Constants.FIELD_BODY);
+            PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
             List<String> bodyTokens = Preprocessor.transform(body);
-            PatternNodeKey nodeKey = PatternLevelTree.getInstance()
-                    .getParentNodeId(bodyTokens, projectName, 0, 0.3);
+            PatternNodeKey nodeKey = PatternNodesCenter.getInstance()
+                    .getParentNodeId(bodyTokens, levelKey, 0.3);
 
             logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
             collector.emit(Constants.LOG_OUT_STREAMID, new Values(logMap));
 
             Map<String, String> unmergedMap = new HashMap<>();
             unmergedMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
-            unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_NODE_KEY_DELIMITER, bodyTokens));
+            unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_TOKENS_DELIMITER, bodyTokens));
             collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(unmergedMap));
         } catch (Exception e) {
             collector.reportError(e);

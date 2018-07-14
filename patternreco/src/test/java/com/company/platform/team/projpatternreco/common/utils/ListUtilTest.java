@@ -33,11 +33,11 @@ public class ListUtilTest {
     public void splitWithStringTest()
     {
         String key = String.format("%s%s%s%s%s",
-                "test", Constants.PATTERN_NODE_KEY_DELIMITER,
-                "0", Constants.PATTERN_NODE_KEY_DELIMITER,
+                "test", Constants.PATTERN_TOKENS_DELIMITER,
+                "0", Constants.PATTERN_TOKENS_DELIMITER,
                 "waefsdf");
-        String[] fields = key.split(Constants.PATTERN_NODE_KEY_DELIMITER);
-        System.out.println(key.split(Constants.PATTERN_NODE_KEY_DELIMITER)[2]);
+        String[] fields = key.split(Constants.PATTERN_TOKENS_DELIMITER);
+        System.out.println(key.split(Constants.PATTERN_TOKENS_DELIMITER)[2]);
         System.out.println(Arrays.toString(fields));
     }
 
