@@ -42,7 +42,7 @@ public class PatternCursoryFinderBolt implements IRichBolt {
             String body = logMap.get(Constants.FIELD_BODY);
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
             List<String> bodyTokens = Preprocessor.transform(body);
-            PatternNodeKey nodeKey = PatternNodesCenter.getInstance()
+            PatternNodeKey nodeKey = PatternNodes.getInstance()
                     .getParentNodeId(bodyTokens, levelKey, 0.3);
 
             logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());

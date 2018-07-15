@@ -6,7 +6,7 @@ import java.util.UUID;
 /**
  * Created by admin on 2018/7/6.
  */
-public class PatternNodeKey implements Comparable<PatternNodeKey>{
+public final class PatternNodeKey implements Comparable<PatternNodeKey>{
     private String id;
     private PatternLevelKey levelKey;
     private static final String DELIMITER = "#@#";
@@ -26,6 +26,9 @@ public class PatternNodeKey implements Comparable<PatternNodeKey>{
         if(this == o)
         {
             return true;
+        }
+        if(o == null) {
+            return false;
         }
         if (this.getClass() != o.getClass())
             return false;

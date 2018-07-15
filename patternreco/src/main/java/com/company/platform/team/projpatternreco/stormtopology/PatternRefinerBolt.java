@@ -52,7 +52,7 @@ public class PatternRefinerBolt implements IRichBolt {
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
             PatternNodeKey parentNodeKey = PatternNodeKey.fromString(parentNodeId);
-            Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodesCenter.getInstance()
+            Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
                     .mergePatternToNode(parentNodeKey, patternTokens, maxDist);
 
             if (this.patternLevel == 10) {
@@ -95,8 +95,8 @@ public class PatternRefinerBolt implements IRichBolt {
         try {
             FileWriter fw = new FileWriter(fileName);
             String treeString = StringUtils.isEmpty(projectName)
-                    ? PatternNodesCenter.getInstance().visualize()
-                    : PatternNodesCenter.getInstance().visualize(projectName);
+                    ? PatternNodes.getInstance().visualize()
+                    : PatternNodes.getInstance().visualize(projectName);
             System.out.println(treeString);
             fw.write(treeString);
             fw.close();
@@ -109,7 +109,7 @@ public class PatternRefinerBolt implements IRichBolt {
         try {
             FileWriter fw = new FileWriter(fileName);
                 try {
-                    fw.write(PatternNodesCenter.getInstance().toString());
+                    fw.write(PatternNodes.getInstance().toString());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
