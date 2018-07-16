@@ -34,9 +34,9 @@ public class PatternTreeHelper {
                     PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
                     //TODO:parentId is null
                     List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
-                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                            .split(Constants.PATTERN_TOKENS_DELIMITER));
                     List<String> representTokens = Arrays.asList(fields.get(Constants.FIELD_REPRESENTTOKENS)
-                            .split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                            .split(Constants.PATTERN_TOKENS_DELIMITER));
                     PatternNode node = new PatternNode(representTokens);
                     node.updatePatternTokens(patternTokens);
                     String parentKeyString = fields.get("parentId");

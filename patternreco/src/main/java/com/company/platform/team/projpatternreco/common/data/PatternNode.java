@@ -5,15 +5,13 @@ import java.util.List;
 /**
  * Created by admin on 2018/6/21.
  */
-public class PatternNode {
+public final class PatternNode {
     private static final String DELIMITER = "#@#";
     private long lastupdatedTime;
     private List<String> representTokens;
     private List<String> patternTokens;
 
     private PatternNodeKey parentNodeKey;
-    // private PatternNodeBak parent;
-    // private List<PatternNodeBak> children;
 
     public PatternNode(List<String> representTokens) {
         this.representTokens = representTokens;
@@ -62,5 +60,34 @@ public class PatternNode {
         return String.format("represent: %s, pattern: %s",
                 String.join("", representTokens),
                 String.join("", patternTokens));
+    }
+
+    public String toJson() {
+        return "";
+    }
+
+    public boolean equals(PatternNode o) {
+        if (this == o) {
+            return true;
+        }
+
+        if (o == null) {
+            return false;
+        }
+
+        if (this.getClass() != o.getClass()) {
+            return false;
+        }
+
+        if (this.hasParent() != o.hasParent()) {
+            return false;
+        }
+
+        if (this.hasParent() && !this.parentNodeKey.equals(o.getParentId())) {
+            return false;
+        }
+
+        return this.patternTokens.equals(o.getPatternTokens())
+                && this.representTokens.equals((o.getRepresentTokens()));
     }
 }

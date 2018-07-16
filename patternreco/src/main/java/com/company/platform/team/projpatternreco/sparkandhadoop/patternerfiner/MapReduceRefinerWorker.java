@@ -72,7 +72,7 @@ public class MapReduceRefinerWorker {
                 PatternNode node = PatternLevelTree.getInstance().getNode(nodeKey);
                 List<String> newTokens = node.getPatternTokens();
                 for (Text value : values) {
-                    List<String> tokens2 = Arrays.asList(value.toString().split(Constants.PATTERN_NODE_KEY_DELIMITER));
+                    List<String> tokens2 = Arrays.asList(value.toString().split(Constants.PATTERN_TOKENS_DELIMITER));
                     newTokens = retrievePattern(newTokens, tokens2);
                 }
                 node.updatePatternTokens(newTokens);
@@ -95,9 +95,9 @@ public class MapReduceRefinerWorker {
                     jsonItems.put(Constants.FIELD_PATTERNID, "");
                 }
                 jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, node.getRepresentTokens()));
+                        String.join(Constants.PATTERN_TOKENS_DELIMITER, node.getRepresentTokens()));
                 jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                        String.join(Constants.PATTERN_NODE_KEY_DELIMITER, node.getPatternTokens()));
+                        String.join(Constants.PATTERN_TOKENS_DELIMITER, node.getPatternTokens()));
                 Text reduceOutValue = new Text();
                 reduceOutValue.set(gson.toJson(jsonItems));
                 context.write(NullWritable.get(), reduceOutValue);

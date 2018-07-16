@@ -5,7 +5,7 @@ import org.apache.commons.lang.StringUtils;
 /**
  * Created by admin on 2018/7/6.
  */
-public class PatternLevelKey {
+public final class PatternLevelKey {
     private String projectName;
     private int level;
     private static final String DELIMITER = "#@#";
@@ -15,7 +15,6 @@ public class PatternLevelKey {
         this.level = level;
     }
 
-    @Override
     public boolean equals(Object o) {
         if(this == o) {
             return true;
@@ -53,10 +52,6 @@ public class PatternLevelKey {
 
     public String getProjectName() {
         return this.projectName;
-    }
-
-    protected static String getDelimiter() {
-        return DELIMITER;
     }
 
     public String toString() {
