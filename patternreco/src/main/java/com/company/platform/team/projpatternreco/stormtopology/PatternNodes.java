@@ -143,7 +143,7 @@ public final class PatternNodes {
         return projectList;
     }
 
-    private long addNode(PatternNodeKey nodeKey, PatternNode node,
+    public long addNode(PatternNodeKey nodeKey, PatternNode node,
                         long clientlastUpdatedTime) {
         //TODO: get maxUpdatedTime From DB
         long maxUpdateTime = getMaxUpdatedTime(nodeKey.getLevelKey());

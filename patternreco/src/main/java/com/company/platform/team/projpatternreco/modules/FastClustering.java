@@ -19,7 +19,7 @@ public class FastClustering {
         double minScore = (1-maxDistance) * maxSize;
         double score = 0;
         for (int i=0; i<minSize; i++) {
-            if (StringUtils.endsWithIgnoreCase(logTokens.get(i), representTokens.get(i))) {
+            if (StringUtils.equalsIgnoreCase(logTokens.get(i), representTokens.get(i))) {
                 score += 1;
             }
             if (score > minScore) {

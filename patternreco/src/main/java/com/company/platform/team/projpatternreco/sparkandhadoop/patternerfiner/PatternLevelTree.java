@@ -42,7 +42,7 @@ public final class PatternLevelTree {
             for (PatternNodeKey key : keys) {
                 if (!key.getLevelKey().equals(lastLevelKey) && lastLevelKey != null) {
                     patternNodes.put(lastLevelKey, projectLevelNodes);
-                    lastLevelKey = key;
+                    lastLevelKey = key.getLevelKey();
                     projectLevelNodes = new HashMap<>();
                 }
                 projectLevelNodes.put(key, nodes.get(key));
