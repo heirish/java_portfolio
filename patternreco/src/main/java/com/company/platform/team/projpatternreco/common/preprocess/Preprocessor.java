@@ -10,7 +10,7 @@ public class Preprocessor {
     //TODO: pipline
     public static List<String> transform(String text) {
         String preprocessedText = Identifier.identifyIP(text, "NELO_IP");
-        preprocessedText = Identifier.identifyDatetime(preprocessedText, "NELO_DATETIME");
+        //preprocessedText = Identifier.identifyDatetime(preprocessedText, "NELO_DATETIME");
 
         return Tokenizer.simpleTokenize(preprocessedText);
     }

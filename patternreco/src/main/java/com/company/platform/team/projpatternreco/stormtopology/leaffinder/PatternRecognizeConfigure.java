@@ -1,5 +1,6 @@
-package com.company.platform.team.projpatternreco.stormtopology;
+package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
+import com.company.platform.team.projpatternreco.stormtopology.RunningType;
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import org.apache.storm.Config;

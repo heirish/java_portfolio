@@ -9,9 +9,9 @@ public class Constants {
     public static final String FIELD_BODY = "body";
     public static final String FIELD_PROJECTNAME = "projectName";
     public static final String FIELD_LEAFID = "leafId";
-    public static final String FIELD_PATTERNID = "patternId";
-    public static final String FIELD_REPRESENTTOKENS= "representTokens";
-    public static final String FIELD_PATTERNTOKENS= "patternTokens";
+    public static final String FIELD_PATTERNID = "@patternId";
+    public static final String FIELD_REPRESENTTOKENS= "@representTokens";
+    public static final String FIELD_PATTERNTOKENS= "@patternTokens";
     public static final double PATTERN_LEAF_MAXDIST = 0.3;
     public static final String PATTERN_DIST_DECAY_TYPE = "exp";
     public static final String PATTERN_TOKENS_DELIMITER = "%@%";
@@ -20,4 +20,5 @@ public class Constants {
     //Storm
     public static final String LOG_OUT_STREAMID = "log";
     public static final String PATTERN_UNMERGED_STREAMID = "unmerged";
+    public static final String PATTERN_UNADDED_STREAMID = "unadded";
 }

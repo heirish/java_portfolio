@@ -1,9 +1,7 @@
-package com.company.platform.team.projpatternreco.stormtopology;
+package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
 import com.company.platform.team.projpatternreco.common.data.Constants;
-import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.google.gson.Gson;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -13,6 +11,7 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +19,11 @@ import java.util.Map;
 /**
  * Created by admin on 2018/7/12.
  */
-public class PatternCursoryFinderBolt implements IRichBolt {
+public class PatternLeafAppenderBolt implements IRichBolt {
     private OutputCollector collector;
     private Gson gson;
     private boolean replayTuple;
-    private double leafSimilarity;
 
-    public PatternCursoryFinderBolt(double leafSimilarity) {
-        this.leafSimilarity = leafSimilarity;
-    }
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
@@ -39,23 +34,29 @@ public class PatternCursoryFinderBolt implements IRichBolt {
     @Override
     public void execute(Tuple tuple) {
         try {
-            String log = tuple.getString(0);
+            String log= tuple.getString(0);
             Map<String, String> logMap = gson.fromJson(log, Map.class);
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
-            String body = logMap.get(Constants.FIELD_BODY);
-            PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            List<String> bodyTokens = Preprocessor.transform(body);
-            PatternNodeKey nodeKey = PatternLevelTree.getInstance()
-                    .getParentNodeId(bodyTokens, projectName, 0, 1 - leafSimilarity);
+            String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
+            List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
+            PatternNodeKey nodeKey = PatternLeaves.getInstance()
+                    .addNewLeaf(projectName, tokens);
 
-            logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
+            if (nodeKey == null) {
+                logMap.put(Constants.FIELD_LEAFID, "");
+            } else  {
+                Map<String, String> unmergedMap = new HashMap<>();
+                unmergedMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
+                unmergedMap.put(Constants.FIELD_PATTERNTOKENS, bodyTokenString);
+                collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(unmergedMap));
+
+                logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
+            }
+
+            // to es
+            logMap.remove(Constants.FIELD_PATTERNTOKENS);
             collector.emit(Constants.LOG_OUT_STREAMID, new Values(logMap));
-
-            Map<String, String> unmergedMap = new HashMap<>();
-            unmergedMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
-            unmergedMap.put(Constants.FIELD_PATTERNTOKENS, String.join(Constants.PATTERN_TOKENS_DELIMITER, bodyTokens));
-            collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(unmergedMap));
         } catch (Exception e) {
             collector.reportError(e);
             if (replayTuple) {

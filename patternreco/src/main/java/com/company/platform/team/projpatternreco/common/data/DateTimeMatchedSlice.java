@@ -1,7 +1,7 @@
 package com.company.platform.team.projpatternreco.common.data;
 
 
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.Pair;
 
 /**
  * Created by admin on 2018/6/26.

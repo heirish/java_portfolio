@@ -1,10 +1,8 @@
 package com.company.platform.team.projpatternreco;
 
 import com.google.gson.Gson;
-import com.google.gson.stream.JsonReader;
 import org.junit.Test;
 
-import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.Map;
@@ -19,7 +17,7 @@ public class UsageTest {
     @Test
     public void readResourceFile() {
         try {
-            String fileName = "PatternRecognize.json";
+            String fileName = "PatternRefiner.json";
             InputStream file = Objects.requireNonNull(this.getClass().getClassLoader().getResourceAsStream(fileName));
             //Type mapType = new TypeToken<Map<String, String>>() {}.getType();
             Map<String, String> jsonMap = gson.fromJson(new InputStreamReader(file), Map.class);

@@ -1,17 +1,16 @@
-package com.company.platform.team.projpatternreco.stormtopology;
+package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
+import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafFinderBolt;
 import org.apache.commons.cli.*;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Logger;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.AuthorizationException;
 import org.apache.storm.generated.InvalidTopologyException;
-import org.apache.storm.kafka.bolt.KafkaBolt;
-import org.apache.storm.kafka.bolt.mapper.FieldNameBasedTupleToKafkaMapper;
-import org.apache.storm.kafka.bolt.selector.DefaultTopicSelector;
 import org.apache.storm.kafka.spout.ByTopicRecordTranslator;
 import org.apache.storm.kafka.spout.KafkaSpout;
 import org.apache.storm.kafka.spout.KafkaSpoutConfig;
@@ -19,20 +18,18 @@ import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
-import java.util.Properties;
-
 /**
  * Created by admin on 2018/7/12.
  */
 //TODO:need a db access for PatternLevelTree
-public class PatternRecognizeTopology {
-    private static final Logger logger = Logger.getLogger("");
+public class PatternRefinerTopology {
+    private static final Logger logger = Logger.getLogger(PatternRefinerTopology.class);
     private static String confFile;
     private static String topologyName;
     private static RunningType runningType;
     private PatternRecognizeConfigure config;
 
-    public PatternRecognizeTopology() {
+    public PatternRefinerTopology() {
         config = PatternRecognizeConfigure.getInstance(confFile, runningType);
     }
 
@@ -40,47 +37,20 @@ public class PatternRecognizeTopology {
         TopologyBuilder topologyBuilder = new TopologyBuilder();
 
         //Spout kafka
-        String normalLogTopic = config.getConfigMap("topics").get("normalLog").toString();
-        String crashLogTopic = config.getConfigMap("topics").get("crashLog").toString();
-        String normalLogTopicSpout = normalLogTopic + "-spout";
-        String crashLogTopicSpout = crashLogTopic + "-spout";
-        topologyBuilder.setSpout(normalLogTopicSpout,
-                createKafkaSpout(normalLogTopic), config.getParallelismCount(normalLogTopicSpout));
-        //topologyBuilder.setSpout(crashLogTopic,
-        //        createKafkaSpout(crashLogTopic), config.getParallelismCount(crashLogTopicSpout));
+        String unmergedLogTopic = config.getConfigMap("topics").get("unmergedLog").toString();
+        String unmergedLogTopicSpout = unmergedLogTopic + "-spout";
+        topologyBuilder.setSpout(unmergedLogTopicSpout,
+                createKafkaSpout(unmergedLogTopic), config.getParallelismCount(unmergedLogTopicSpout));
 
         //Bolts
-        String cursoryFinderBoltName = "PatternCursoryFinderBolt";
-        topologyBuilder.setBolt(cursoryFinderBoltName, new PatternCursoryFinderBolt(config.getLeafSimilarity()),
-                config.getParallelismCount(cursoryFinderBoltName))
-                .shuffleGrouping(normalLogTopicSpout);
-               // .shuffleGrouping(crashLogTopic);
-        String lastBoltName = cursoryFinderBoltName;
-        //for (int i=0; i<10; i++) {
-        for (int i=0; i<10; i++) {
-            String boltName = "PatternRefinerBolt" + i;
-            topologyBuilder.setBolt(boltName, new PatternRefinerBolt(i, config.getLeafSimilarity()),
-                    config.getParallelismCount(boltName)).shuffleGrouping(lastBoltName, Constants.PATTERN_UNMERGED_STREAMID);
-            lastBoltName = boltName;
-        }
-
-        //output cursorFinder to kafka or else where
-        //Properties props = new Properties();
-        //props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
-        //props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        //props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        //props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
-        //props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
-        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.naver.nelo.symbolicator.bolt.RoundRobinPartitioner");
-
-        //create KafkaBolt
-        //String outputTopic = config.getConfigMap("topics").get("logWithPatternId").toString();
-        //KafkaBolt outputKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(outputTopic))
-        //        .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
-        //        .withProducerProperties(props);
-        //topologyBuilder.setBolt(outputTopic + "Bolt", outputKafkaBolt,
-        //        config.getParallelismCount(outputTopic+"Bolt"))
-        //        .shuffleGrouping(cursoryFinderBoltName, Constants.LOG_OUT_STREAMID);
+        String reducerBoltName = "UnmergedLogReducerBolt";
+        topologyBuilder.setBolt(reducerBoltName, new UnmergedLogReducerBolt(60, 500),
+                config.getParallelismCount(reducerBoltName))
+                .shuffleGrouping(unmergedLogTopicSpout);
+        String refinderBoltName = "PatternRefinerBolt";
+        topologyBuilder.setBolt(reducerBoltName, new PatternRefinerBolt(config.getLeafSimilarity()),
+                config.getParallelismCount(refinderBoltName))
+                .fieldsGrouping(reducerBoltName, Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PATTERNID));
 
         return topologyBuilder;
     }
@@ -89,7 +59,7 @@ public class PatternRecognizeTopology {
         TopologyBuilder tb = createTopologyBuilder();
 
         if (runningType == RunningType.CLUSTER) {
-            logger.info("Starting Proguard CLUSTER topology");
+            logger.info("Starting Pattern Refiner CLUSTER topology");
             try {
                 StormSubmitter.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
             } catch (AlreadyAliveException | InvalidTopologyException e) {
@@ -97,12 +67,12 @@ public class PatternRecognizeTopology {
             } catch (AuthorizationException e) {
                 e.printStackTrace();
             }
-            logger.info("Started Proguard CLUSTER topology");
+            logger.info("Started Pattern Refiner CLUSTER topology");
         } else {
-            logger.info("Starting Proguard LOCAL topology");
+            logger.info("Starting Pattern Refiner  LOCAL topology");
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
-            logger.info("Started Proguard LOCAL topology");
+            logger.info("Started Pattern Refiner LOCAL topology");
         }
     }
 
@@ -121,7 +91,7 @@ public class PatternRecognizeTopology {
     public static void main(String[] args) {
         try {
             parseArgs(args);
-            PatternRecognizeTopology topology = new PatternRecognizeTopology();
+            PatternRefinerTopology topology = new PatternRefinerTopology();
             topology.start();
         } catch (Exception e) {
             e.printStackTrace();
@@ -145,12 +115,12 @@ public class PatternRecognizeTopology {
         if (commands.hasOption("c")) {
             confFile = commands.getOptionValue("c");
         } else {
-            confFile = "PatternRecognize.json";
+            confFile = "PatternRefiner.json";
         }
         if (commands.hasOption("n")) {
             topologyName = commands.getOptionValue("n");
         } else {
-            topologyName = "PatternRecognizeTopology";
+            topologyName = "PatternRefinerTopology";
         }
         if (commands.hasOption("t")) {
             runningType = RunningType.fromString(commands.getOptionValue("t"));
@@ -161,7 +131,7 @@ public class PatternRecognizeTopology {
 
     private static void showHelp(Options options) {
         HelpFormatter formater = new HelpFormatter();
-        formater.printHelp("PatternRecognizeTopology", options);
+        formater.printHelp("PatternRefinerTopology", options);
         System.exit(0);
     }
 }

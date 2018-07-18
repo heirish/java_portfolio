@@ -10,15 +10,18 @@ public final class PatternNodeKey implements Comparable<PatternNodeKey>{
     private String id;
     private PatternLevelKey levelKey;
     private static final String DELIMITER = "#@#";
+    int hashCode;
 
     public PatternNodeKey(String projectName, int level) {
         this.id= UUID.randomUUID().toString().replace("-", "");
         this.levelKey = new PatternLevelKey(projectName, level);
+        hashCode = getHashCode();
     }
 
     public PatternNodeKey(PatternLevelKey levelKey) {
         this.id= UUID.randomUUID().toString().replace("-", "");
         this.levelKey = levelKey;
+        hashCode = getHashCode();
     }
 
     @Override
@@ -40,11 +43,7 @@ public final class PatternNodeKey implements Comparable<PatternNodeKey>{
     @Override
     public int hashCode()
     {
-        int hash = this.levelKey.hashCode();
-        if (this.id != null) {
-            hash += 31 * this.id.hashCode();
-        }
-        return hash;
+        return hashCode;
     }
 
     @Override
@@ -89,5 +88,13 @@ public final class PatternNodeKey implements Comparable<PatternNodeKey>{
         } catch (Exception e) {
             throw new Exception("invalid key", e);
         }
+    }
+
+    private int getHashCode() {
+        int hash = this.levelKey.hashCode();
+        if (this.id != null) {
+            hash += 31 * this.id.hashCode();
+        }
+        return hash;
     }
 }

@@ -3,8 +3,8 @@ package com.company.platform.team.projpatternreco.common.preprocess;
 import com.company.platform.team.projpatternreco.common.data.DateTimeMatchedSlice;
 import com.company.platform.team.projpatternreco.common.data.MatchedSlice;
 import com.company.platform.team.projpatternreco.common.utils.DateTimeUtil;
-import javafx.util.Pair;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -100,7 +100,7 @@ public class DateFinderRegex {
             stringBuilder.setLength(stringBuilder.length()-1);
         }
         stringBuilder.append("){3,}");
-        System.out.println(stringBuilder.toString());
+        //System.out.println(stringBuilder.toString());
         DATETIME_PATTERN = Pattern.compile(stringBuilder.toString(),
                 Pattern.CASE_INSENSITIVE|Pattern.MULTILINE|Pattern.DOTALL|Pattern.UNICODE_CASE);
     }
@@ -152,7 +152,7 @@ public class DateFinderRegex {
         for (Map.Entry<String, String> entry : regexMap.entrySet()) {
             String groupName = entry.getKey();
             try {
-                matchedSlice.matchedGroup = new Pair<>(groupName, matcher.group(groupName));
+                matchedSlice.matchedGroup = Pair.of(groupName, matcher.group(groupName));
                 matchedSlice.sliceStartPos = matchedSlice.sliceStartPos;
                 matchedSlice.sliceEndPos = matchedSlice.sliceEndPos;
                 return matchedSlice;

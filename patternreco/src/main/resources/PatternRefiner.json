@@ -1,0 +1,20 @@
+{
+    "kafka": {
+        "fetchMega": 64,
+        "brokers": "10.93.130.93:9092",
+        "consumeFromLatest": false,
+        "consumeFromEarliest": false
+    },
+    "topics":{
+        "unmergedLog": "output-test"
+    },
+    "parallelism":{
+      "unmergedLog-spout": 1,
+
+      "UnmergedLogReducerBolt": 8,
+      "PatternRefinerBolt": 8
+    },
+  "patternreco":{
+    "leafSimilarity": 0.9
+  }
+ }

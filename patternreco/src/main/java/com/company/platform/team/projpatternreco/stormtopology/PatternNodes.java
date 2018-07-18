@@ -24,7 +24,8 @@ import static com.company.platform.team.projpatternreco.sparkandhadoop.patterner
 // TODO:thread safe
 public final class PatternNodes {
     //Map<project-level, Map<project-level-nodeid, PatternNode>>
-    private ConcurrentHashMap<PatternNodeKey, PatternNode> patternNodes;
+    private Map<PatternNodeKey, PatternNode> patternNodes;
+
     private static PatternNodes forest;
     private static final Gson gson = new Gson();
     private ReadWriteLock lock;
@@ -38,6 +39,7 @@ public final class PatternNodes {
     }
 
     private PatternNodes() {
+    //public PatternNodes() {
         lock = new ReentrantReadWriteLock();
         //TODO:recover from local checkpoint
         try {
@@ -228,7 +230,8 @@ public final class PatternNodes {
             }
             System.out.println(String.format("found %s nodes for level %s.", nodes.size(), i));
             for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
-                String patternString = entry.getKey().toString() + " : " + String.join("", entry.getValue().getPatternTokens());
+                String patternString = entry.getKey().toString() + " : " + String.join("", entry.getValue().getPatternTokens())
+                        + ", lastupdatedtime: " + entry.getValue().getLastupdatedTime();
                 //if nodes is not the highest level and don't have parent, drop it
                 VisualTreeNode parent = null;
                 if (i == maxLevel) {

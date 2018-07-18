@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * Created by admin on 2018/6/20.
  */
 public class Identifier {
-    private static final Logger logger = Logger.getLogger("");
+    private static final Logger logger = Logger.getLogger(Identifier.class);
 
     private static String IPV4_SEG  = "(25[0-5]|(2[0-4]|1?[0-9])?[0-9])";
     private static String IPV4_ADDR = "(" + IPV4_SEG + "\\.){3}" + IPV4_SEG;

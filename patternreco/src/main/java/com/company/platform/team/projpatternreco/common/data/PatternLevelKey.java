@@ -9,10 +9,12 @@ public final class PatternLevelKey {
     private String projectName;
     private int level;
     private static final String DELIMITER = "#@#";
+    int hashCode;
 
     public PatternLevelKey(String projectName, int level) {
         this.projectName = projectName;
         this.level = level;
+        this.hashCode = getHashCode();
     }
 
     public boolean equals(Object o) {
@@ -38,12 +40,7 @@ public final class PatternLevelKey {
     @Override
     public int hashCode()
     {
-        int hash = 17;
-        hash += 31 * this.level;
-        if (this.projectName != null) {
-            hash += 31 * this.projectName.hashCode();
-        }
-        return hash;
+        return hashCode;
     }
 
     public int getLevel() {
@@ -67,5 +64,14 @@ public final class PatternLevelKey {
         } catch (Exception e) {
             throw new Exception("invalid node key", e);
         }
+    }
+
+    private int getHashCode() {
+        int hash = 17;
+        hash += 31 * this.level;
+        if (this.projectName != null) {
+            hash += 31 * this.projectName.hashCode();
+        }
+        return hash;
     }
 }
