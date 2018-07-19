@@ -10,6 +10,7 @@ import org.apache.commons.lang.StringUtils;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by admin on 2018/6/29.
@@ -17,7 +18,7 @@ import java.util.*;
  */
 // TODO:thread safe
 public final class PatternLeaves {
-    private Map<PatternLevelKey, Map<PatternNodeKey, PatternNode>> patternLeaves;
+    private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternLeaves;
 
     private static PatternLeaves leaves;
     private static final Gson gson = new Gson();
@@ -30,18 +31,18 @@ public final class PatternLeaves {
     }
 
     private PatternLeaves() {
-        patternLeaves = new HashMap<>();
+        patternLeaves = new ConcurrentHashMap<>();
         try {
             Map<PatternNodeKey, PatternNode> nodes = readFromFile("tree/patternLeaves");
             //split nodes by LevelKey
             SortedSet<PatternNodeKey> keys = new TreeSet<>(nodes.keySet());
-            Map<PatternNodeKey, PatternNode> projectLeaves = new HashMap<>();
+            ConcurrentHashMap<PatternNodeKey, PatternNode> projectLeaves = new ConcurrentHashMap<>();
             PatternLevelKey lastLevelKey= null;
             for (PatternNodeKey key : keys) {
                 if (!key.getProjectName().equals(lastLevelKey) && lastLevelKey != null) {
                     patternLeaves.put(lastLevelKey, projectLeaves);
                     lastLevelKey = key.getLevelKey();
-                    projectLeaves = new HashMap<>();
+                    projectLeaves = new ConcurrentHashMap<>();
                 }
                 projectLeaves.put(key, nodes.get(key));
             }
@@ -105,7 +106,7 @@ public final class PatternLeaves {
         if (patternLeaves.containsKey(levelKey)) {
             patternLeaves.get(levelKey).put(nodeKey, node);
         } else {
-            Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
             nodes.put(nodeKey, node);
             patternLeaves.put(levelKey, nodes);
         }
@@ -114,7 +115,7 @@ public final class PatternLeaves {
 
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry :patternLeaves.entrySet()) {
+        for (Map.Entry<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> entry :patternLeaves.entrySet()) {
             for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
                 Map<String, String> jsonItems = new HashMap<>();
                 jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
@@ -162,19 +163,31 @@ public final class PatternLeaves {
         }
         return nodes;
     }
-
     private Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
         //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        if (patternLeaves.containsKey(levelKey)) {
+        //TODO: get from Redis
+        if (!patternLeaves.containsKey(levelKey)) {
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter = new ConcurrentHashMap<>(getNodesFromCenter(levelKey));
+            if (nodesFromCenter != null) {
+                patternLeaves.put(levelKey, nodesFromCenter);
+                nodes.putAll(nodesFromCenter);
+            }
+        } else {
             nodes.putAll(patternLeaves.get(levelKey));
         }
+
+        return nodes;
+    }
+
+    private Map<PatternNodeKey, PatternNode> getNodesFromCenter(PatternLevelKey levelKey) {
+        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         return nodes;
     }
 
     private long getMaxUpdatedTime(PatternLevelKey levelKey) {
         long maxUpdateTime = 0;
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternLeaves.entrySet()) {
+        for (Map.Entry<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> entry : patternLeaves.entrySet()) {
             for (Map.Entry<PatternNodeKey, PatternNode> nodeEntry : entry.getValue().entrySet()) {
                 if (levelKey.equals(nodeEntry.getKey().getLevelKey())) {
                     maxUpdateTime = maxUpdateTime < nodeEntry.getValue().getLastupdatedTime() ?
@@ -212,7 +225,7 @@ public final class PatternLeaves {
         if (patternLeaves.containsKey(nodeKey.getLevelKey())) {
             patternLeaves.get(nodeKey.getLevelKey()).put(nodeKey, node);
         } else {
-            Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
             nodes.put(nodeKey, node);
             patternLeaves.put(nodeKey.getLevelKey(), nodes);
         }

@@ -8,15 +8,19 @@
     "topics":{
         "normalLog": "normal-logs",
         "crashLog": "crash-logs",
-        "logWithPatternId": "output-test"
+        "unmergedLog": "output-test"
     },
     "parallelism":{
       "normal-logs-spout": 1,
       "crash-logs-spout": 1,
+      "unmergedLog-spout": 1,
 
       "PatternLeafFinderBolt": 10,
       "PatternLeafAppenderBolt": 10,
-      "output-testBolt":10
+      "output-testBolt":10,
+
+      "UnmergedLogReducerBolt": 8,
+      "PatternRefinerBolt": 8
     },
   "patternreco":{
     "leafSimilarity": 0.9

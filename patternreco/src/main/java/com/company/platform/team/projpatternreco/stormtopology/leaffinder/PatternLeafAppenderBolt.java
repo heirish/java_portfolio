@@ -40,8 +40,7 @@ public class PatternLeafAppenderBolt implements IRichBolt {
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
             List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
-            PatternNodeKey nodeKey = PatternLeaves.getInstance()
-                    .addNewLeaf(projectName, tokens);
+            PatternNodeKey nodeKey = PatternLeaves.getInstance().addNewLeaf(projectName, tokens);
 
             if (nodeKey == null) {
                 logMap.put(Constants.FIELD_LEAFID, "");
@@ -69,7 +68,6 @@ public class PatternLeafAppenderBolt implements IRichBolt {
 
     @Override
     public void cleanup() {
-
     }
 
     @Override

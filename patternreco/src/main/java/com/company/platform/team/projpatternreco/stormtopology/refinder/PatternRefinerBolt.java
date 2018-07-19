@@ -2,7 +2,6 @@ package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
 import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.stormtopology.PatternNodes;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
 import org.apache.commons.lang.StringUtils;
@@ -15,7 +14,6 @@ import org.apache.storm.tuple.Tuple;
 
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +27,10 @@ public class PatternRefinerBolt implements IRichBolt {
     private double leafSimilarity;
     private double decayRefactor;
 
+    //@Test
+    private long lastBackupTime;
+    private long backupInterval;
+
     public PatternRefinerBolt(double leafSimlarity, double decayRefacotr) {
         this.leafSimilarity = leafSimlarity;
         this.decayRefactor = decayRefacotr;
@@ -38,6 +40,10 @@ public class PatternRefinerBolt implements IRichBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         this.gson = new Gson();
+        this.replayTuple = true;
+
+        lastBackupTime = System.currentTimeMillis();
+        backupInterval = 10 * 60 * 1000;
     }
 
     @Override
@@ -49,15 +55,20 @@ public class PatternRefinerBolt implements IRichBolt {
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
-
             for (int i=1; i<10; i++) {
-               double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
+                double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
                 Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
                         .mergePatternToNode(parentNodeKey, patternTokens, maxDist);
-                if (i == 10) {
-                    saveTreeToFile("tree/visualpatterntree", "");
-                    backupTree("tree/patterntree");
+                if (nextLevelTuple == null) {
+                   break;
                 }
+                parentNodeKey = nextLevelTuple.getLeft();
+                patternTokens = nextLevelTuple.getRight();
+            }
+
+            if (System.currentTimeMillis() - lastBackupTime > backupInterval) {
+                saveTreeToFile("tree/visualpatterntree", "");
+                backupTree("tree/patterntree");
             }
             collector.ack(tuple);
         } catch (Exception e) {

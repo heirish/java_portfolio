@@ -1,19 +1,18 @@
-package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
+package com.company.platform.team.projpatternreco.stormtopology;
 
-import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.Constants;
-import com.company.platform.team.projpatternreco.stormtopology.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.LogIndexBolt;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafAppenderBolt;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafFinderBolt;
+import com.company.platform.team.projpatternreco.stormtopology.refinder.PatternRefinerBolt;
+import com.company.platform.team.projpatternreco.stormtopology.refinder.UnmergedLogReducerBolt;
 import org.apache.commons.cli.*;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Logger;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.AuthorizationException;
 import org.apache.storm.generated.InvalidTopologyException;
-import org.apache.storm.kafka.bolt.KafkaBolt;
-import org.apache.storm.kafka.bolt.mapper.FieldNameBasedTupleToKafkaMapper;
-import org.apache.storm.kafka.bolt.selector.DefaultTopicSelector;
 import org.apache.storm.kafka.spout.ByTopicRecordTranslator;
 import org.apache.storm.kafka.spout.KafkaSpout;
 import org.apache.storm.kafka.spout.KafkaSpoutConfig;
@@ -21,27 +20,37 @@ import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
 
-import java.util.Properties;
-
 /**
  * Created by admin on 2018/7/12.
  */
 //TODO:need a db access for PatternLevelTree
-public class PatternLeafFinderTopology {
-    private static final Logger logger = Logger.getLogger(PatternLeafFinderTopology.class);
+public final class PatternRecognizeTopology {
+    private static final Logger logger = Logger.getLogger(PatternRecognizeTopology.class);
+
     private static String confFile;
+    private PatternRecognizeConfigure config;
     private static String topologyName;
     private static RunningType runningType;
-    private PatternRecognizeConfigure config;
 
-    public PatternLeafFinderTopology() {
+    public static void main(String[] args) {
+        try {
+            parseArgs(args);
+            PatternRecognizeTopology topology = new PatternRecognizeTopology();
+            topology.start();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public PatternRecognizeTopology() {
         config = PatternRecognizeConfigure.getInstance(confFile, runningType);
     }
 
     private TopologyBuilder createTopologyBuilder() {
         TopologyBuilder topologyBuilder = new TopologyBuilder();
 
-        //Spout kafka
+
+        // for LeafFinder
         String normalLogTopic = config.getConfigMap("topics").get("normalLog").toString();
         String crashLogTopic = config.getConfigMap("topics").get("crashLog").toString();
         String normalLogTopicSpout = normalLogTopic + "-spout";
@@ -51,16 +60,15 @@ public class PatternLeafFinderTopology {
         //topologyBuilder.setSpout(crashLogTopic,
         //        createKafkaSpout(crashLogTopic), config.getParallelismCount(crashLogTopicSpout));
 
-        //Bolts
         String leafFinderBoltName = "PatternLeafFinderBolt";
+        String leafAppenderBoltName = "PatternLeafAppenderBolt";
+        String logIndexBoltName = "LogIndexBolt";
         topologyBuilder.setBolt(leafFinderBoltName, new PatternLeafFinderBolt(config.getLeafSimilarity()),
                 config.getParallelismCount(leafFinderBoltName))
                 .shuffleGrouping(normalLogTopicSpout);
                // .shuffleGrouping(crashLogTopic);
-        String leafAppenderBoltName = "PatternLeafFinderBolt";
         topologyBuilder.setBolt(leafAppenderBoltName, new PatternLeafAppenderBolt(), config.getParallelismCount(leafAppenderBoltName))
                 .fieldsGrouping(leafFinderBoltName, Constants.PATTERN_UNADDED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
-        String logIndexBoltName = "LogIndexBolt";
         topologyBuilder.setBolt(logIndexBoltName, new LogIndexBolt(), config.getParallelismCount(logIndexBoltName))
                 .shuffleGrouping(leafFinderBoltName, Constants.LOG_OUT_STREAMID)
                 .shuffleGrouping(leafAppenderBoltName, Constants.LOG_OUT_STREAMID);
@@ -83,6 +91,22 @@ public class PatternLeafFinderTopology {
         //        config.getParallelismCount(outputTopic+"Bolt"))
         //        .shuffleGrouping(leafFinderBoltName, Constants.PATTERN_UNMERGED_STREAMID)
         //        .shuffleGrouping(leafAppenderBoltName, Constants.PATTERN_UNMERGED_STREAMID);
+
+
+        //for pattern refiner
+        String unmergedLogTopic = config.getConfigMap("topics").get("unmergedLog").toString();
+        String unmergedLogTopicSpout = unmergedLogTopic + "-spout";
+        topologyBuilder.setSpout(unmergedLogTopicSpout,
+                createKafkaSpout(unmergedLogTopic), config.getParallelismCount(unmergedLogTopicSpout));
+
+        String reducerBoltName = "UnmergedLogReducerBolt";
+        String refinerBoltName = "PatternRefinerBolt";
+        topologyBuilder.setBolt(reducerBoltName, new UnmergedLogReducerBolt(60, 500),
+                config.getParallelismCount(reducerBoltName))
+                .shuffleGrouping(unmergedLogTopicSpout);
+        topologyBuilder.setBolt(reducerBoltName, new PatternRefinerBolt(config.getLeafSimilarity(), 0.9),
+                config.getParallelismCount(refinerBoltName))
+                .fieldsGrouping(reducerBoltName, Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
 
         return topologyBuilder;
     }
@@ -120,16 +144,6 @@ public class PatternLeafFinderTopology {
         return new KafkaSpout<>(kafkaSpoutBuilder.build());
     }
 
-    public static void main(String[] args) {
-        try {
-            parseArgs(args);
-            PatternLeafFinderTopology topology = new PatternLeafFinderTopology();
-            topology.start();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private static void parseArgs(String[] args) throws Exception {
         Options options = new Options();
         options.addOption("h", "help", false, "show help");
@@ -147,12 +161,14 @@ public class PatternLeafFinderTopology {
         if (commands.hasOption("c")) {
             confFile = commands.getOptionValue("c");
         } else {
-            confFile = "PatternLeafFinder.json";
+            confFile = "PatternRecognize.json";
+            logger.info("Using default config file: [" + confFile + "].");
         }
         if (commands.hasOption("n")) {
             topologyName = commands.getOptionValue("n");
         } else {
-            topologyName = "PatternLeafFinderTopology";
+            topologyName = "PatternRecognizeTopology";
+            logger.info("Using default topology name: [" + topologyName+ "].");
         }
         if (commands.hasOption("t")) {
             runningType = RunningType.fromString(commands.getOptionValue("t"));

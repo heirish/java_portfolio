@@ -43,19 +43,17 @@ public class PatternLeafFinderBolt implements IRichBolt {
             Map<String, String> logMap = gson.fromJson(log, Map.class);
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
-            String body = logMap.get(Constants.FIELD_BODY);
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            List<String> bodyTokens = Preprocessor.transform(body);
+            List<String> bodyTokens = Preprocessor.transform(logMap.get(Constants.FIELD_BODY));
             PatternNodeKey nodeKey = PatternLeaves.getInstance()
                     .getParentNodeId(bodyTokens, levelKey, 1 - leafSimilarity,
                             Constants.FINDCLUSTER_TOLERANCE_TIMES);
-
 
             String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, bodyTokens);
             if (nodeKey == null) { // to leafaddbolt
                 logMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
                 collector.emit(Constants.PATTERN_UNADDED_STREAMID, new Values(projectName, logMap));
-            } else {  // to kafka and es
+            } else {
                 // to kafka
                 Map<String, String> valueMap = new HashMap<>();
                 valueMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
@@ -78,7 +76,6 @@ public class PatternLeafFinderBolt implements IRichBolt {
 
     @Override
     public void cleanup() {
-
     }
 
     @Override

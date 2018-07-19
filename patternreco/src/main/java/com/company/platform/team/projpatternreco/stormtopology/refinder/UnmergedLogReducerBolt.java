@@ -2,7 +2,6 @@ package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
 import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.modules.NeedlemanWunschAligner;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
 import org.apache.storm.task.OutputCollector;
@@ -21,8 +20,9 @@ import java.util.Map;
  * Created by admin on 2018/7/12.
  */
 public class UnmergedLogReducerBolt implements IRichBolt {
-    private OutputCollector collector;
     private static final Gson gson  =  new Gson();
+
+    private OutputCollector collector;
     private boolean replayTuple;
     private long maxCachedPatterns;
     private long cacheInterval;
@@ -62,8 +62,10 @@ public class UnmergedLogReducerBolt implements IRichBolt {
                     || cachedPatterns.size() >= maxCachedPatterns) {
                for (Map.Entry<PatternNodeKey, List<String>> entry : cachedPatterns.entrySet()) {
                    String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, entry.getValue());
-                   collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(entry.getKey().toString(),tokenString));
+                   collector.emit(Constants.PATTERN_UNMERGED_STREAMID,
+                           new Values(entry.getKey().getProjectName().toString(), entry.getKey(), tokenString));
                }
+               cachedPatterns = new HashMap<>();
             }
 
             collector.ack(tuple);
@@ -75,17 +77,16 @@ public class UnmergedLogReducerBolt implements IRichBolt {
                 collector.ack(tuple);
             }
         }
-
     }
 
     @Override
     public void cleanup() {
-
     }
 
     @Override
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
-        outputFieldsDeclarer.declareStream(Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PATTERNID, "value"));
+        outputFieldsDeclarer.declareStream(Constants.PATTERN_UNMERGED_STREAMID,
+                new Fields(Constants.FIELD_PROJECTNAME, Constants.FIELD_PATTERNID, "value"));
     }
 
     @Override

@@ -26,12 +26,13 @@ public class LogIndexBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        replayTuple = true;
+        this.replayTuple = true;
     }
 
     @Override
     public void execute(Tuple tuple) {
         try {
+            //TODO:index to es
             collector.ack(tuple);
         } catch (Exception e) {
             collector.reportError(e);
