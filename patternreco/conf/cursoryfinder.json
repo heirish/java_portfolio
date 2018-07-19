@@ -1,0 +1,20 @@
+{
+	"projectFilter": "test",
+	"serviceType": "spark",
+	"leafSimilarity": 0.7,
+
+	"kafkaBrokers": "localhost:9092",
+	"kafkaTopics": "test",
+
+	"logOut": {
+		"type": "local",
+		#"path": "./dataout/logout"
+		"path": "hdfs://localhost:9000/dataout/logout"
+	},
+
+	"logPatternOut": {
+		"Type": "local",
+		#"path": "./dataout/logpatternout"
+		"path": "hdfs://localhost:9000/dataout/logpatternout"
+	}
+}
