@@ -1,5 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
+import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
 import com.google.common.collect.MapDifference;
@@ -141,7 +142,7 @@ public final class PatternLeaves {
             String line;
             while ((line = br.readLine()) != null) {
                 try {
-                    Map<String, String> fields = gson.fromJson(line, Map.class);
+                    Map<String, String> fields = gson.fromJson(line, Constants.LOG_MAP_TYPE);
                     PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
                     List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)
                             .split(Constants.PATTERN_TOKENS_DELIMITER));

@@ -12,6 +12,7 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,7 +47,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Map.class);
+            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
             PatternNodeKey nodeKey = PatternNodeKey.fromString(logMap.get(Constants.FIELD_PATTERNID));
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));

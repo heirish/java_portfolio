@@ -151,8 +151,7 @@ public final class PatternRecognizeTopology {
         options.addOption("n", "name", true, "topology name");
         options.addOption("t", "runningtype", true, "running type");
 
-        //CommandLineParser parser = new BasicParser();
-        CommandLineParser parser = new GnuParser();
+        CommandLineParser parser = new DefaultParser();
         CommandLine commands = parser.parse(options, args);
         if (commands.hasOption("h")) {
             showHelp(options);

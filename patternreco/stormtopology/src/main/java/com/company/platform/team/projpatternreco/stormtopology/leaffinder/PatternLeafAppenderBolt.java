@@ -1,8 +1,10 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
+import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -11,10 +13,8 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.lang.reflect.Type;
+import java.util.*;
 
 /**
  * Created by admin on 2018/7/12.
@@ -35,7 +35,7 @@ public class PatternLeafAppenderBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log= tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Map.class);
+            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);

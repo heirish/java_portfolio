@@ -5,6 +5,7 @@ import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -13,6 +14,7 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
+import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +42,7 @@ public class PatternLeafFinderBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Map.class);
+            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);

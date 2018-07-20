@@ -4,10 +4,12 @@ import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -30,7 +32,7 @@ public class PatternTreeHelper {
             String line;
             while ((line = br.readLine()) != null) {
                 try {
-                    Map<String, String> fields = gson.fromJson(line, Map.class);
+                    Map<String, String> fields = gson.fromJson(line, Constants.LOG_MAP_TYPE);
                     PatternNodeKey key = PatternNodeKey.fromString(fields.get(Constants.FIELD_PATTERNID));
                     //TODO:parentId is null
                     List<String> patternTokens = Arrays.asList(fields.get(Constants.FIELD_PATTERNTOKENS)

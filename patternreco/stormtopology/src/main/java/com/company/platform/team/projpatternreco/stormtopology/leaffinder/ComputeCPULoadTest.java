@@ -155,8 +155,7 @@ public class ComputeCPULoadTest {
         options.addOption("h", "help", false, "show help");
         options.addOption("n", "num", true, "log count");
 
-        //CommandLineParser parser = new BasicParser();
-        CommandLineParser parser = new GnuParser();
+        CommandLineParser parser = new DefaultParser();
         CommandLine commands = parser.parse(options, args);
         if (commands.hasOption("h")) {
             showHelp(options);

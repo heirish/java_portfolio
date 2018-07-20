@@ -1,5 +1,10 @@
 package com.company.platform.team.projpatternreco.common.data;
 
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
+import java.util.HashMap;
+
 /**
  * Created by admin on 2018/6/22.
  */
@@ -21,4 +26,6 @@ public class Constants {
     public static final String LOG_OUT_STREAMID = "log";
     public static final String PATTERN_UNMERGED_STREAMID = "unmerged";
     public static final String PATTERN_UNADDED_STREAMID = "unadded";
+
+    public static final Type LOG_MAP_TYPE = new TypeToken<HashMap<String, String>>() {}.getType();
 }

@@ -1,5 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
+import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import org.apache.storm.Config;
@@ -33,9 +34,9 @@ public class PatternRecognizeConfigure {
                 //                Objects.requireNonNull(this.getClass().getClassLoader().getResource(fileName)).getFile())),
                 confMap = gson.fromJson(new InputStreamReader(
                                 Objects.requireNonNull(this.getClass().getClassLoader().getResourceAsStream(fileName))),
-                        Map.class);
+                        Constants.LOG_MAP_TYPE);
             } else {
-                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Map.class);
+                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Constants.LOG_MAP_TYPE);
             }
         } catch (IOException e) {
             e.printStackTrace();

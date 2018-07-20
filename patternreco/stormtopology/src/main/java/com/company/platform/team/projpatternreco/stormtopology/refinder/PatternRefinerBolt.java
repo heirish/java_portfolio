@@ -50,7 +50,7 @@ public class PatternRefinerBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Map.class);
+            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
             PatternNodeKey parentNodeKey = PatternNodeKey.fromString(logMap.get(Constants.FIELD_PATTERNID));
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
