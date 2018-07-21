@@ -12,10 +12,7 @@ import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by admin on 2018/7/12.
@@ -28,7 +25,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     private long maxCachedPatterns;
     private long cacheInterval;
     private long cacheStartTime;
-    private Map<PatternNodeKey, List<String>> cachedPatterns;
+    private Map<String, List<String>> cachedPatterns;
 
     public UnmergedLogReducerBolt(long cacheIntervalSeconds, long maxCachedPatterns) {
        this.maxCachedPatterns = maxCachedPatterns;
@@ -47,26 +44,32 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
+            Map<String, String> logMap = gson.fromJson(log, Map.class);
             PatternNodeKey nodeKey = PatternNodeKey.fromString(logMap.get(Constants.FIELD_PATTERNID));
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
-            if (cachedPatterns.containsKey(nodeKey)) {
-                List<String> newTokens = Aligner.retrievePattern(cachedPatterns.get(nodeKey), patternTokens);
-                cachedPatterns.put(nodeKey, newTokens);
+            if (cachedPatterns.containsKey(nodeKey.toString())) {
+                List<String> newTokens = Aligner.retrievePattern(cachedPatterns.get(nodeKey.toString()), patternTokens);
+                cachedPatterns.put(nodeKey.toString(), newTokens);
             } else {
-                cachedPatterns.put(nodeKey, patternTokens);
+                cachedPatterns.put(nodeKey.toString(), patternTokens);
             }
 
             if ((System.currentTimeMillis() - cacheStartTime) >= cacheInterval
                     || cachedPatterns.size() >= maxCachedPatterns) {
-               for (Map.Entry<PatternNodeKey, List<String>> entry : cachedPatterns.entrySet()) {
+                for(Iterator<Map.Entry<String, List<String>>> it = cachedPatterns.entrySet().iterator();
+                    it.hasNext(); ) {
+                   Map.Entry<String, List<String>> entry = it.next();
+                   PatternNodeKey entryNodeKey = PatternNodeKey.fromString(entry.getKey());
                    String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, entry.getValue());
+                   Map<String, String> valueMap = new HashMap<>();
+                   valueMap.put(Constants.FIELD_PATTERNID, entryNodeKey.toString());
+                   valueMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
                    collector.emit(Constants.PATTERN_UNMERGED_STREAMID,
-                           new Values(entry.getKey().getProjectName().toString(), entry.getKey(), tokenString));
+                           new Values(nodeKey.getProjectName(), gson.toJson(valueMap)));
+                   it.remove();
                }
-               cachedPatterns = new HashMap<>();
             }
 
             collector.ack(tuple);
@@ -87,7 +90,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     @Override
     public void declareOutputFields(OutputFieldsDeclarer outputFieldsDeclarer) {
         outputFieldsDeclarer.declareStream(Constants.PATTERN_UNMERGED_STREAMID,
-                new Fields(Constants.FIELD_PROJECTNAME, Constants.FIELD_PATTERNID, "value"));
+                new Fields(Constants.FIELD_PROJECTNAME, "value"));
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
 import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeaves;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
@@ -22,7 +23,7 @@ public final class PatternNodes {
     private static final Gson gson = new Gson();
     private static final Logger logger = LoggerFactory.getLogger(PatternNodes.class);
 
-    private ConcurrentHashMap<PatternLevelKey, Map<PatternNodeKey, PatternNode>> patternNodes;
+    private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternNodes;
     private static PatternNodes forest;
 
     public static synchronized PatternNodes getInstance() {
@@ -68,8 +69,13 @@ public final class PatternNodes {
     public Pair<PatternNodeKey, List<String>> mergePatternToNode(PatternNodeKey key,
                                                                  List<String> patternTokens,
                                                                  double maxDist) {
+        PatternNode parentNode = getNode(key);
+        if (parentNode == null) {
+            logger.error("can not find node for key: " + key);
+            return null;
+        }
+
         try {
-            PatternNode parentNode = getNode(key);
             List<String> mergedTokens = Aligner.retrievePattern(parentNode.getPatternTokens(), patternTokens);
             if (!mergedTokens.equals(parentNode.getPatternTokens())) {
                 parentNode.updatePatternTokens(mergedTokens);
@@ -87,7 +93,8 @@ public final class PatternNodes {
                     return Pair.of(parentNode.getParentId(), mergedTokens);
                 }
             } else {
-                logger.debug("No need to update node [" + key.toString() + "] pattern.");
+                //TODO: is success, return waht?
+                logger.info("No need to update node [" + key.toString() + "] pattern.");
             }
         } catch (Exception e) {
             logger.warn("Failed to merged tokens to it's parent pattern.", e);
@@ -121,10 +128,11 @@ public final class PatternNodes {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
                 patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
             } else {
-                Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+                ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
                 nodes.put(nodeKey, node);
                 patternNodes.put(nodeKey.getLevelKey(), nodes);
             }
+            logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
             return true;
         }
         return false;
@@ -132,11 +140,13 @@ public final class PatternNodes {
 
     private boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
         if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
-            Map<PatternNodeKey, PatternNode> nodesFromCenter = getNodesFromCenter(nodeKey.getLevelKey());
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
+                    new ConcurrentHashMap<>(getNodesFromCenter(nodeKey.getLevelKey()));
             if (nodesFromCenter == null) {
                 logger.warn("Can't find level contains node [" + nodeKey.toString() + "] for update.");
                 return false;
             } else {
+                logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
                 patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
             }
         }
@@ -152,10 +162,11 @@ public final class PatternNodes {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
                 patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
             } else {
-                Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+                ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
                 nodes.put(nodeKey, node);
                 patternNodes.put(nodeKey.getLevelKey(), nodes);
             }
+            logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
             return true;
         }
         return false;
@@ -166,8 +177,9 @@ public final class PatternNodes {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO: get from Redis
         if (!patternNodes.containsKey(levelKey)) {
-            Map<PatternNodeKey, PatternNode> nodesFromCenter = getNodesFromCenter(levelKey);
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter = new ConcurrentHashMap<>(getNodesFromCenter(levelKey));
             if (nodesFromCenter != null) {
+                logger.info("get from center");
                 patternNodes.put(levelKey, nodesFromCenter);
                 nodes.putAll(nodesFromCenter);
             }
@@ -181,18 +193,35 @@ public final class PatternNodes {
     //TODO:
     private Map<PatternNodeKey, PatternNode> getNodesFromCenter(PatternLevelKey levelKey) {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+        //For Test
+        nodes.putAll(PatternLeaves.getInstance().getNodes(levelKey));
+        logger.info("nodes from leaves: " + nodes.keySet().toString());
         return nodes;
     }
 
-    private PatternNode getNode(PatternNodeKey nodeKey) {
-        if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
-            Map<PatternNodeKey, PatternNode> nodesFromCenter = getNodesFromCenter(nodeKey.getLevelKey());
+    //private PatternNode getNode(PatternNodeKey nodeKey) {
+    public PatternNode getNode(PatternNodeKey nodeKey) {
+        if (!patternNodes.containsKey(nodeKey.getLevelKey())
+                || !patternNodes.get(nodeKey.getLevelKey()).containsKey(nodeKey)) {
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
+                    new ConcurrentHashMap<>(getNodesFromCenter(nodeKey.getLevelKey()));
             if (nodesFromCenter != null) {
                 patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
+            } else {
+                logger.warn("can not find level nodes from center, level key: " + nodeKey.getLevelKey().toString());
             }
         }
-        return patternNodes.containsKey(nodeKey.getLevelKey()) && patternNodes.get(nodeKey.getLevelKey()).containsKey(nodeKey) ?
-                patternNodes.get(nodeKey.getLevelKey()).get(nodeKey) : null;
+
+        if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
+            logger.error("can not find level nodes of key: " + nodeKey.toString());
+            return null;
+        }
+
+        if (!(patternNodes.get(nodeKey.getLevelKey()).containsKey(nodeKey))) {
+            logger.error("can not find node of key: " + nodeKey.toString());
+            return null;
+        }
+        return patternNodes.get(nodeKey.getLevelKey()).get(nodeKey);
     }
 
     //TODO:
@@ -255,7 +284,7 @@ public final class PatternNodes {
 
     public String toString() {
         StringBuilder stringBuilder = new StringBuilder();
-        for (Map.Entry<PatternLevelKey, Map<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+        for (Map.Entry<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
             for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
                 Map<String, String> jsonItems = new HashMap<>();
                 jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());

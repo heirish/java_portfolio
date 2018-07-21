@@ -7,18 +7,24 @@ import com.company.platform.team.projpatternreco.stormtopology.leaffinder.Patter
 import com.company.platform.team.projpatternreco.stormtopology.refinder.PatternRefinerBolt;
 import com.company.platform.team.projpatternreco.stormtopology.refinder.UnmergedLogReducerBolt;
 import org.apache.commons.cli.*;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Logger;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
 import org.apache.storm.generated.AlreadyAliveException;
 import org.apache.storm.generated.AuthorizationException;
 import org.apache.storm.generated.InvalidTopologyException;
+import org.apache.storm.kafka.bolt.KafkaBolt;
+import org.apache.storm.kafka.bolt.mapper.FieldNameBasedTupleToKafkaMapper;
+import org.apache.storm.kafka.bolt.selector.DefaultTopicSelector;
 import org.apache.storm.kafka.spout.ByTopicRecordTranslator;
 import org.apache.storm.kafka.spout.KafkaSpout;
 import org.apache.storm.kafka.spout.KafkaSpoutConfig;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Values;
+
+import java.util.Properties;
 
 /**
  * Created by admin on 2018/7/12.
@@ -74,23 +80,23 @@ public final class PatternRecognizeTopology {
                 .shuffleGrouping(leafAppenderBoltName, Constants.LOG_OUT_STREAMID);
 
         //output cursorFinder to kafka or else where
-        //Properties props = new Properties();
-        //props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
-        //props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        //props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
-        //props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
-        //props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
-        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.naver.nelo.symbolicator.bolt.RoundRobinPartitioner");
+        Properties props = new Properties();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
+        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
+        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
+        props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
+        props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
+        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.company.platform.team.projpatternreco.RoundRobinPartitioner");
 
         //// create KafkaBolt
-        //String outputTopic = config.getConfigMap("topics").get("logWithPatternId").toString();
-        //KafkaBolt outputKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(outputTopic))
-        //        .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
-        //        .withProducerProperties(props);
-        //topologyBuilder.setBolt(outputTopic + "Bolt", outputKafkaBolt,
-        //        config.getParallelismCount(outputTopic+"Bolt"))
-        //        .shuffleGrouping(leafFinderBoltName, Constants.PATTERN_UNMERGED_STREAMID)
-        //        .shuffleGrouping(leafAppenderBoltName, Constants.PATTERN_UNMERGED_STREAMID);
+        String outputTopic = config.getConfigMap("topics").get("unmergedLog").toString();
+        KafkaBolt outputKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(outputTopic))
+                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
+                .withProducerProperties(props);
+        topologyBuilder.setBolt(outputTopic + "Bolt", outputKafkaBolt,
+                config.getParallelismCount(outputTopic+"Bolt"))
+                .shuffleGrouping(leafFinderBoltName, Constants.PATTERN_UNMERGED_STREAMID)
+                .shuffleGrouping(leafAppenderBoltName, Constants.PATTERN_UNMERGED_STREAMID);
 
 
         //for pattern refiner
@@ -104,7 +110,7 @@ public final class PatternRecognizeTopology {
         topologyBuilder.setBolt(reducerBoltName, new UnmergedLogReducerBolt(60, 500),
                 config.getParallelismCount(reducerBoltName))
                 .shuffleGrouping(unmergedLogTopicSpout);
-        topologyBuilder.setBolt(reducerBoltName, new PatternRefinerBolt(config.getLeafSimilarity(), 0.9),
+        topologyBuilder.setBolt(refinerBoltName, new PatternRefinerBolt(config.getLeafSimilarity(), 0.9),
                 config.getParallelismCount(refinerBoltName))
                 .fieldsGrouping(reducerBoltName, Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
 

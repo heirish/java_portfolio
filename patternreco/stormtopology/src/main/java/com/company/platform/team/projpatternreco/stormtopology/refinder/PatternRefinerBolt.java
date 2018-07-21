@@ -11,6 +11,8 @@ import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
 import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.tuple.Tuple;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -21,8 +23,10 @@ import java.util.Map;
  * Created by admin on 2018/7/12.
  */
 public class PatternRefinerBolt implements IRichBolt {
+    private static final Logger logger = LoggerFactory.getLogger(PatternRefinerBolt.class);
+    private static final Gson gson = new Gson();
+
     private OutputCollector collector;
-    private Gson gson;
     private boolean replayTuple;
     private double leafSimilarity;
     private double decayRefactor;
@@ -39,18 +43,18 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.gson = new Gson();
         this.replayTuple = true;
 
-        lastBackupTime = System.currentTimeMillis();
-        backupInterval = 10 * 60 * 1000;
+        lastBackupTime = 0;
+        //backupInterval = 10 * 60 * 1000;
+        backupInterval = 6 * 1000;
     }
 
     @Override
     public void execute(Tuple tuple) {
         try {
-            String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Constants.LOG_MAP_TYPE);
+            String log = tuple.getString(1);
+            Map<String, String> logMap = gson.fromJson(log, Map.class);
             PatternNodeKey parentNodeKey = PatternNodeKey.fromString(logMap.get(Constants.FIELD_PATTERNID));
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
@@ -60,6 +64,7 @@ public class PatternRefinerBolt implements IRichBolt {
                 Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
                         .mergePatternToNode(parentNodeKey, patternTokens, maxDist);
                 if (nextLevelTuple == null) {
+                    logger.warn("can't merge token for node: " + parentNodeKey.toString());
                    break;
                 }
                 parentNodeKey = nextLevelTuple.getLeft();
@@ -67,8 +72,10 @@ public class PatternRefinerBolt implements IRichBolt {
             }
 
             if (System.currentTimeMillis() - lastBackupTime > backupInterval) {
+                logger.info("back up pattern trees");
                 saveTreeToFile("tree/visualpatterntree", "");
                 backupTree("tree/patterntree");
+                lastBackupTime = System.currentTimeMillis();
             }
             collector.ack(tuple);
         } catch (Exception e) {

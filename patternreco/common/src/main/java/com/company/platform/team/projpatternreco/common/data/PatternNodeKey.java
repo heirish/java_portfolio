@@ -7,10 +7,12 @@ import java.util.UUID;
  * Created by admin on 2018/7/6.
  */
 public final class PatternNodeKey implements Comparable<PatternNodeKey>{
+    private static final String DELIMITER = "#@#";
+
     private String id;
     private PatternLevelKey levelKey;
-    private static final String DELIMITER = "#@#";
-    int hashCode;
+
+    private int hashCode;
 
     public PatternNodeKey(String projectName, int level) {
         this.id= UUID.randomUUID().toString().replace("-", "");
@@ -79,14 +81,15 @@ public final class PatternNodeKey implements Comparable<PatternNodeKey>{
     }
 
     public static PatternNodeKey fromString(String key) throws Exception{
-        String[] items = key.split(DELIMITER);
         try {
-            PatternLevelKey levelKey = PatternLevelKey.fromString(items[0]);
+            int pos = key.lastIndexOf(DELIMITER);
+            PatternLevelKey levelKey = PatternLevelKey.fromString(key.substring(0, pos));
             PatternNodeKey nodeKey = new PatternNodeKey(levelKey);
-            nodeKey.id = items[2];
+            nodeKey.id = key.substring(pos + DELIMITER.length());
+            nodeKey.hashCode = nodeKey.getHashCode();
             return nodeKey;
         } catch (Exception e) {
-            throw new Exception("invalid key", e);
+            throw new Exception("invalid key: " + key, e);
         }
     }
 

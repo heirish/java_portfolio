@@ -30,13 +30,11 @@ public class PatternRecognizeConfigure {
         Map confMap = null;
         try {
             if (runningType == RunningType.LOCAL) {
-                //confMap = gson.fromJson(new JsonReader(new FileReader(
-                //                Objects.requireNonNull(this.getClass().getClassLoader().getResource(fileName)).getFile())),
                 confMap = gson.fromJson(new InputStreamReader(
                                 Objects.requireNonNull(this.getClass().getClassLoader().getResourceAsStream(fileName))),
-                        Constants.LOG_MAP_TYPE);
+                        Map.class);
             } else {
-                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Constants.LOG_MAP_TYPE);
+                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Map.class);
             }
         } catch (IOException e) {
             e.printStackTrace();

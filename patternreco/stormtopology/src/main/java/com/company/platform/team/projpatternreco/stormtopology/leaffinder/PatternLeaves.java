@@ -7,6 +7,8 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -19,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 // TODO:thread safe
 public final class PatternLeaves {
+    private static final Logger logger = LoggerFactory.getLogger(PatternLeaves.class);
     private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternLeaves;
 
     private static PatternLeaves leaves;
@@ -111,6 +114,7 @@ public final class PatternLeaves {
             nodes.put(nodeKey, node);
             patternLeaves.put(levelKey, nodes);
         }
+        logger.info("new node added: " + nodeKey.toString());
         return nodeKey;
     }
 
@@ -164,7 +168,9 @@ public final class PatternLeaves {
         }
         return nodes;
     }
-    private Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
+
+    //private Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
+    public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
         //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO: get from Redis
@@ -212,17 +218,8 @@ public final class PatternLeaves {
         return null;
     }
 
-    private long addNode(PatternNodeKey nodeKey, PatternNode node,
-                         long clientlastUpdatedTime) {
-        //TODO: get maxUpdatedTime From DB
-        long maxUpdateTime = getMaxUpdatedTime(nodeKey.getLevelKey());
-        //client need to synchronize
-        if (clientlastUpdatedTime < maxUpdateTime) {
-            return 0;
-        }
-
-        node.setLastupdatedTime(System.currentTimeMillis());
-
+    //for test
+    public void addNode(PatternNodeKey nodeKey, PatternNode node) {
         if (patternLeaves.containsKey(nodeKey.getLevelKey())) {
             patternLeaves.get(nodeKey.getLevelKey()).put(nodeKey, node);
         } else {
@@ -230,6 +227,5 @@ public final class PatternLeaves {
             nodes.put(nodeKey, node);
             patternLeaves.put(nodeKey.getLevelKey(), nodes);
         }
-        return node.getLastupdatedTime();
     }
 }
