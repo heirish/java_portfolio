@@ -59,6 +59,7 @@ public class PatternLeafAppenderBolt implements IRichBolt {
             // to es
             logMap.remove(Constants.FIELD_PATTERNTOKENS);
             collector.emit(Constants.LOG_OUT_STREAMID, new Values(gson.toJson(logMap)));
+            collector.ack(tuple);
         } catch (Exception e) {
             collector.reportError(e);
             if (replayTuple) {

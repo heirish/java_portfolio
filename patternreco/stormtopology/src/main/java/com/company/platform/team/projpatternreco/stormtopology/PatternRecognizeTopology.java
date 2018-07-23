@@ -86,7 +86,7 @@ public final class PatternRecognizeTopology {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
         props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
         props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
-        //props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.company.platform.team.projpatternreco.RoundRobinPartitioner");
+        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.company.platform.team.projpatternreco.stormtopology.RoundRobinPartitioner");
 
         //// create KafkaBolt
         String outputTopic = config.getConfigMap("topics").get("unmergedLog").toString();

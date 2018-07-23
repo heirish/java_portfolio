@@ -2,6 +2,7 @@ package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
 import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
+import com.company.platform.team.projpatternreco.stormtopology.PatternRecognizeException;
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeaves;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
@@ -11,6 +12,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.security.InvalidParameterException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -44,7 +46,12 @@ public final class PatternNodes {
     public PatternNodeKey getParentNodeId(List<String> tokens,
                                           PatternLevelKey levelKey,
                                           double maxDistance,
-                                          int retryTolerence) {
+                                          int retryTolerence) throws InvalidParameterException{
+        if (tokens == null || levelKey == null) {
+            logger.error("invalid parameters. tokens or levelKey is null.");
+            throw new InvalidParameterException("invalid parameters, tokens or levelKey is null.");
+        }
+
         Map<PatternNodeKey, PatternNode> levelNodes = getNodes(levelKey);
         PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, maxDistance);
         if (nodeKey != null) {
@@ -62,43 +69,59 @@ public final class PatternNodes {
             triedTimes++;
         } while (triedTimes < retryTolerence);
 
-        logger.warn("Already tried " + retryTolerence + " times, still can't find parent id for given tokens.");
+        logger.debug("Already retried " + retryTolerence + " times, still can't find parent id for given tokens.");
         return null;
     }
 
     public Pair<PatternNodeKey, List<String>> mergePatternToNode(PatternNodeKey key,
                                                                  List<String> patternTokens,
-                                                                 double maxDist) {
+                                                                 double maxDist,
+                                                                 boolean isLastLevel)
+            throws PatternRecognizeException, InvalidParameterException{
+        if (key == null || patternTokens == null) {
+            logger.error("invalid parameter, key or patternTokens is null");
+            throw new InvalidParameterException("key or patternTokens is null");
+        }
+
         PatternNode parentNode = getNode(key);
         if (parentNode == null) {
             logger.error("can not find node for key: " + key);
-            return null;
+            throw new PatternRecognizeException("can not find node for key: " + key);
         }
 
         try {
             List<String> mergedTokens = Aligner.retrievePattern(parentNode.getPatternTokens(), patternTokens);
+            PatternLevelKey levelKey = new PatternLevelKey(key.getProjectName(), key.getLevel()+1);
+            boolean grandNodeAdded = false;
+            if (isLastLevel) {
+                logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
+            }
+            if (!parentNode.hasParent() && !isLastLevel) {
+                PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, maxDist, 1);
+                if (grandNodeKey == null) {
+                    grandNodeKey = new PatternNodeKey(levelKey);
+                    addNode(grandNodeKey, new PatternNode(mergedTokens));
+                }
+                parentNode.setParent(grandNodeKey);
+                grandNodeAdded = true;
+            }
+
+            boolean parentNodeUpdated = false;
             if (!mergedTokens.equals(parentNode.getPatternTokens())) {
                 parentNode.updatePatternTokens(mergedTokens);
-                PatternLevelKey levelKey = new PatternLevelKey(key.getProjectName(), key.getLevel()+1);
-                if (!parentNode.hasParent()) {
-                    PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, maxDist, 1);
-                    if (grandNodeKey == null) {
-                        grandNodeKey = new PatternNodeKey(levelKey);
-                        addNode(grandNodeKey, new PatternNode(mergedTokens));
-                    }
-                    parentNode.setParent(grandNodeKey);
-                }
-                //update the tree node(parent Id and pattern) by key
-                if (parentNode.hasParent() && updateNode(key, parentNode)) {
-                    return Pair.of(parentNode.getParentId(), mergedTokens);
-                }
-            } else {
-                //TODO: is success, return waht?
-                logger.info("No need to update node [" + key.toString() + "] pattern.");
+                updateNode(key, parentNode);
+                parentNodeUpdated = true;
+            }
+
+            if (grandNodeAdded || parentNodeUpdated) {
+                return Pair.of(parentNode.getParentId(), mergedTokens);
             }
         } catch (Exception e) {
-            logger.warn("Failed to merged tokens to it's parent pattern.", e);
+            logger.warn("Failed to merge tokens to it's parent pattern.", e);
+            throw new PatternRecognizeException("Failed to merge tokens to it's parent pattern" + e.getMessage());
         }
+
+        logger.debug("No need to update node [" + key.toString() + "] pattern.");
         return null;
     }
 
@@ -132,7 +155,7 @@ public final class PatternNodes {
                 nodes.put(nodeKey, node);
                 patternNodes.put(nodeKey.getLevelKey(), nodes);
             }
-            logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
+            logger.debug("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
             return true;
         }
         return false;
@@ -143,10 +166,9 @@ public final class PatternNodes {
             ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
                     new ConcurrentHashMap<>(getNodesFromCenter(nodeKey.getLevelKey()));
             if (nodesFromCenter == null) {
-                logger.warn("Can't find level contains node [" + nodeKey.toString() + "] for update.");
+                logger.info("Can't find level contains node [" + nodeKey.toString() + "] for update.");
                 return false;
             } else {
-                logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
                 patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
             }
         }
@@ -166,7 +188,7 @@ public final class PatternNodes {
                 nodes.put(nodeKey, node);
                 patternNodes.put(nodeKey.getLevelKey(), nodes);
             }
-            logger.info("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
+            logger.debug("update node key:" + nodeKey.getLevelKey() + ", " + node.toString());
             return true;
         }
         return false;
@@ -179,7 +201,7 @@ public final class PatternNodes {
         if (!patternNodes.containsKey(levelKey)) {
             ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter = new ConcurrentHashMap<>(getNodesFromCenter(levelKey));
             if (nodesFromCenter != null) {
-                logger.info("get from center");
+                logger.debug("get from center");
                 patternNodes.put(levelKey, nodesFromCenter);
                 nodes.putAll(nodesFromCenter);
             }
@@ -195,7 +217,7 @@ public final class PatternNodes {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //For Test
         nodes.putAll(PatternLeaves.getInstance().getNodes(levelKey));
-        logger.info("nodes from leaves: " + nodes.keySet().toString());
+        logger.debug("nodes from leaves: " + nodes.keySet().toString());
         return nodes;
     }
 
@@ -244,7 +266,6 @@ public final class PatternNodes {
         StringBuilder stringBuilder = new StringBuilder();
         Set<String> projectNames = getAllProjectsName();
         for (String name : projectNames) {
-            System.out.println(name);
             stringBuilder.append(visualize(name));
         }
         return stringBuilder.toString();
@@ -262,7 +283,7 @@ public final class PatternNodes {
             if (nodes == null) {
                 continue;
             }
-            System.out.println(String.format("found %s nodes for level %s.", nodes.size(), i));
+            logger.debug(String.format("found %s nodes for level %s.", nodes.size(), i));
             for (Map.Entry<PatternNodeKey, PatternNode> entry : nodes.entrySet()) {
                 String patternString = entry.getKey().toString() + " : " + String.join("", entry.getValue().getPatternTokens());
                 //if nodes is not the highest level and don't have parent, drop it
@@ -275,7 +296,7 @@ public final class PatternNodes {
                 if (parent != null) {
                     parent.addChild(new VisualTreeNode(entry.getKey().toString(), patternString));
                 } else {
-                    System.out.println("not found node " + entry.getKey() + "'s parent in visual tree or it has not parent");
+                    logger.warn("not found node " + entry.getKey() + "'s parent in visual tree or it has not parent");
                 }
             }
         }

@@ -14,6 +14,7 @@ import org.apache.storm.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
@@ -43,11 +44,11 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.replayTuple = true;
+        this.replayTuple = false;
 
         lastBackupTime = 0;
-        //backupInterval = 10 * 60 * 1000;
-        backupInterval = 6 * 1000;
+        backupInterval = 10 * 60 * 1000;
+        //backupInterval = 6 * 1000;
     }
 
     @Override
@@ -59,12 +60,13 @@ public class PatternRefinerBolt implements IRichBolt {
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
-            for (int i=1; i<10; i++) {
+            //merge i-1, add i
+            for (int i=1; i<11; i++) {
                 double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
+                boolean isLastLevel = (i==10) ? true : false;
                 Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
-                        .mergePatternToNode(parentNodeKey, patternTokens, maxDist);
+                        .mergePatternToNode(parentNodeKey, patternTokens, maxDist, isLastLevel);
                 if (nextLevelTuple == null) {
-                    logger.warn("can't merge token for node: " + parentNodeKey.toString());
                    break;
                 }
                 parentNodeKey = nextLevelTuple.getLeft();
@@ -104,11 +106,14 @@ public class PatternRefinerBolt implements IRichBolt {
 
     public void saveTreeToFile(String fileName, String projectName) {
         try {
+            File file = new File(fileName);
+            if (!file.getParentFile().exists()) {
+                file.getParentFile().mkdirs();
+            }
             FileWriter fw = new FileWriter(fileName);
             String treeString = StringUtils.isEmpty(projectName)
                     ? PatternNodes.getInstance().visualize()
                     : PatternNodes.getInstance().visualize(projectName);
-            System.out.println(treeString);
             fw.write(treeString);
             fw.close();
         } catch (IOException e) {
@@ -118,6 +123,10 @@ public class PatternRefinerBolt implements IRichBolt {
 
     public void backupTree(String fileName) {
         try {
+            File file = new File(fileName);
+            if (!file.getParentFile().exists()) {
+                file.getParentFile().mkdirs();
+            }
             FileWriter fw = new FileWriter(fileName);
                 try {
                     fw.write(PatternNodes.getInstance().toString());

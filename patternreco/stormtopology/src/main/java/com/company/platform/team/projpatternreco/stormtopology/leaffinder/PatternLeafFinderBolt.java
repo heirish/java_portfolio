@@ -67,6 +67,7 @@ public class PatternLeafFinderBolt implements IRichBolt {
                 logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
                 collector.emit(Constants.LOG_OUT_STREAMID, new Values(gson.toJson(logMap)));
             }
+            collector.ack(tuple);
         } catch (Exception e) {
             collector.reportError(e);
             if (replayTuple) {

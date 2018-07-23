@@ -114,7 +114,7 @@ public final class PatternLeaves {
             nodes.put(nodeKey, node);
             patternLeaves.put(levelKey, nodes);
         }
-        logger.info("new node added: " + nodeKey.toString());
+        logger.debug("new node added: " + nodeKey.toString());
         return nodeKey;
     }
 
