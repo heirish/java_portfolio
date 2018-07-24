@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology;
+package com.company.platform.team.projpatternreco.stormtopology.utils;
 
 /**
  * Created by Administrator on 2018/7/7 0007.

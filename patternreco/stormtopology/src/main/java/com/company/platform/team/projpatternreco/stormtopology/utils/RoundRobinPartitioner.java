@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology;
+package com.company.platform.team.projpatternreco.stormtopology.utils;
 
 import org.apache.kafka.clients.producer.Partitioner;
 import org.apache.kafka.common.Cluster;

@@ -1,27 +1,33 @@
 {
-    "kafka": {
-        "fetchMega": 64,
-        "brokers": "localhost:9092",
-        "consumeFromLatest": false,
-        "consumeFromEarliest": false
-    },
-    "topics":{
-        "normalLog": "normal-logs",
-        "crashLog": "crash-logs",
-        "unmergedLog": "output-test"
-    },
-    "parallelism":{
-      "normal-logs-spout": 1,
-      "crash-logs-spout": 1,
-      "unmergedLog-spout": 1,
+  "redis": {
+    "host": "localhost",
+    "port": 11378,
+    "maxTotal": 2000,
+    "maxWaitMillis": 5000
+  },
+  "kafka": {
+    "fetchMega": 64,
+    "brokers": "localhost:9092",
+    "consumeFromLatest": false,
+    "consumeFromEarliest": false
+  },
+  "topics":{
+    "normalLog": "normal-logs",
+    "crashLog": "crash-logs",
+    "unmergedLog": "pattern-tokens"
+  },
+  "parallelismCount":{
+    "normal-logs-spout": 4,
+    "crash-logs-spout": 4,
+    "pattern-tokens-spout": 4,
 
-      "PatternLeafFinderBolt": 10,
-      "PatternLeafAppenderBolt": 10,
-      "output-testBolt":10,
+    "PatternLeafFinderBolt": 20,
+    "PatternLeafAppenderBolt": 10,
+    "LogIndexBolt":10,
 
-      "UnmergedLogReducerBolt": 8,
-      "PatternRefinerBolt": 8
-    },
+    "UnmergedLogReducerBolt": 20,
+    "PatternRefinerBolt": 8
+  },
   "patternreco":{
     "leafSimilarity": 0.9
   }

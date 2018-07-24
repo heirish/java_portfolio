@@ -32,13 +32,14 @@ public class ComputeCPULoadTest {
     private static final double leafSimilarity = 0.9;
     private static final Logger logger =Logger.getLogger(ComputeCPULoadTest.class);
     private static int maxCount = 10;
+    private static Map<String, String> config = prepareConfigure();
 
     public static void main(String[] args) {
         try {
             logger.info("test started....");
             parseArgs(args);
             logs = readLogsFromFile("./logs.txt");
-            preparePatternTree(logs, PatternLeaves.getInstance());
+            preparePatternTree(logs, PatternLeaves.getInstance(config));
 
             logTokens = new ArrayList<>();
             for (String log : logs) {
@@ -54,7 +55,7 @@ public class ComputeCPULoadTest {
 
             long endTime = System.currentTimeMillis() + 5 * 1000;
             for (int i = 0; i < workersCount; i++) {
-                createAndStartWorker(barrier, endTime, PatternLeaves.getInstance()); //use barrier to start all workers at the same time as main thread
+                createAndStartWorker(barrier, endTime, PatternLeaves.getInstance(config)); //use barrier to start all workers at the same time as main thread
             }
             barrier.await();
             System.out.println("All workers and main thread started");
@@ -66,6 +67,15 @@ public class ComputeCPULoadTest {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static Map<String, String> prepareConfigure() {
+        Map<String, String> conf = new HashMap<>();
+        conf.put("host", "10.113.121.233");
+        conf.put("port", "11379");
+        conf.put("maxTotal", "2000");
+        conf.put("maxWaitMillis", "5000");
+        return conf;
     }
 
     private static void preparePatternTree(List<String> logs, PatternLeaves leaves) {

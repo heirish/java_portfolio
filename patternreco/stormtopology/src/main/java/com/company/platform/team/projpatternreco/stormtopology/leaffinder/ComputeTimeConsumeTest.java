@@ -9,10 +9,7 @@ import org.apache.log4j.Logger;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * Created by admin on 2018/7/16.
@@ -25,6 +22,7 @@ public class ComputeTimeConsumeTest {
     private static final double leafSimilarity = 0.9;
     private static final Logger logger =Logger.getLogger(ComputeTimeConsumeTest.class);
     private static int maxCount = -1;
+    private static Map<String, String> config = prepareConfigure();
 
     public static void main(String[] args) {
         try {
@@ -41,10 +39,19 @@ public class ComputeTimeConsumeTest {
         }
     }
 
+    private static Map<String, String> prepareConfigure() {
+        Map<String, String> conf = new HashMap<>();
+        conf.put("host", "10.113.121.233");
+        conf.put("port", "11379");
+        conf.put("maxTotal", "2000");
+        conf.put("maxWaitMillis", "5000");
+        return conf;
+    }
+
     private static void preparePatternTree(List<String> logs) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            PatternLeaves.getInstance().addNewLeaf(projectName, tokens);
+            PatternLeaves.getInstance(config).addNewLeaf(projectName, tokens);
         }
     }
 
@@ -61,7 +68,7 @@ public class ComputeTimeConsumeTest {
                 PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
                 startTime = System.currentTimeMillis();
                 //PatternNodeKey nodeKey = PatternNodes.getInstance().getParentNodeId(tokens, levelKey, 1 - leafSimilarity);
-                PatternNodeKey nodeKey = PatternLeaves.getInstance().getParentNodeId(tokens, levelKey,
+                PatternNodeKey nodeKey = PatternLeaves.getInstance(config).getParentNodeId(tokens, levelKey,
                         1 - leafSimilarity, Constants.FINDCLUSTER_TOLERANCE_TIMES);
                 endTime = System.currentTimeMillis();
                 finderTime += endTime - startTime;
@@ -75,7 +82,7 @@ public class ComputeTimeConsumeTest {
     private static void doFastClusteringWithTokens(List<List<String>> logTokens) {
         for (List<String> tokens : logTokens) {
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            PatternNodeKey nodeKey = PatternLeaves.getInstance().getParentNodeId(tokens, levelKey,1 - leafSimilarity,
+            PatternNodeKey nodeKey = PatternLeaves.getInstance(config).getParentNodeId(tokens, levelKey,1 - leafSimilarity,
                     Constants.FINDCLUSTER_TOLERANCE_TIMES);
             //System.out.println(nodeKey.toString());
         }

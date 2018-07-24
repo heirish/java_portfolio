@@ -2,6 +2,8 @@ package com.company.platform.team.projpatternreco.common.data;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.security.InvalidParameterException;
+
 /**
  * Created by admin on 2018/7/6.
  */
@@ -54,9 +56,28 @@ public final class PatternLevelKey {
                 this.level);
     }
 
+    public String toDelimitedString(String delimiter) {
+        String separator = StringUtils.isEmpty(delimiter) ? "" : delimiter;
+        return String.format("%s%s%s",
+                this.projectName, separator, this.level);
+    }
+
     public static PatternLevelKey fromString(String key) throws Exception{
-        String[] items = key.split(DELIMITER);
         try {
+            String[] items = key.split(DELIMITER);
+            return new PatternLevelKey(items[0], Integer.parseInt(items[1]));
+        } catch (Exception e) {
+            throw new Exception("invalid key: " + key, e);
+        }
+    }
+
+    public static PatternLevelKey fromDelimitedString(String key, String delimiter) throws Exception {
+        if (StringUtils.isEmpty(delimiter)) {
+            throw new InvalidParameterException("invalid delimiter: " + delimiter);
+        }
+
+        try {
+            String[] items = key.split(delimiter);
             return new PatternLevelKey(items[0], Integer.parseInt(items[1]));
         } catch (Exception e) {
             throw new Exception("invalid key: " + key, e);

@@ -1,6 +1,7 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
 import clojure.lang.Cons;
+import clojure.lang.Obj;
 import com.company.platform.team.projpatternreco.common.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
@@ -26,12 +27,16 @@ public class PatternLeafAppenderBolt implements IRichBolt {
     private static final Gson gson = new Gson();
 
     private OutputCollector collector;
+    private Map redisConfMap;
     private boolean replayTuple;
 
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        replayTuple = true;
+        this.replayTuple = true;
+
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get("redis"));
     }
 
     @Override
@@ -43,7 +48,7 @@ public class PatternLeafAppenderBolt implements IRichBolt {
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
             List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
-            PatternNodeKey nodeKey = PatternLeaves.getInstance().addNewLeaf(projectName, tokens);
+            PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap).addNewLeaf(projectName, tokens);
 
             if (nodeKey == null) {
                 logMap.put(Constants.FIELD_LEAFID, "");

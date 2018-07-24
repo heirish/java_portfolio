@@ -2,7 +2,8 @@ package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
 import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
-import com.company.platform.team.projpatternreco.stormtopology.PatternRecognizeException;
+import com.company.platform.team.projpatternreco.stormtopology.utils.PatternRecognizeException;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeaves;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
@@ -26,18 +27,20 @@ public final class PatternNodes {
     private static final Logger logger = LoggerFactory.getLogger(PatternNodes.class);
 
     private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternNodes;
+    private Map confMap;
     private static PatternNodes forest;
 
-    public static synchronized PatternNodes getInstance() {
+    public static synchronized PatternNodes getInstance(Map conf) {
         if (forest == null) {
-            forest = new PatternNodes();
+            forest = new PatternNodes(conf);
         }
         return forest;
     }
 
-    private PatternNodes() {
+    private PatternNodes(Map conf) {
         try {
             patternNodes = new ConcurrentHashMap<>();
+            this.confMap = conf;
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -147,7 +150,7 @@ public final class PatternNodes {
     }
 
     public boolean addNode(PatternNodeKey nodeKey, PatternNode node ) {
-        if(setNodeToCenter(nodeKey, node)) {
+        if(RedisNodeCenter.getInstance(confMap).addNode(nodeKey, node)) {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
                 patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
             } else {
@@ -164,7 +167,7 @@ public final class PatternNodes {
     private boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
         if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
             ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
-                    new ConcurrentHashMap<>(getNodesFromCenter(nodeKey.getLevelKey()));
+                    new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(nodeKey.getLevelKey()));
             if (nodesFromCenter == null) {
                 logger.info("Can't find level contains node [" + nodeKey.toString() + "] for update.");
                 return false;
@@ -180,7 +183,7 @@ public final class PatternNodes {
             return false;
         }
 
-        if(setNodeToCenter(nodeKey, node)) {
+        if(RedisNodeCenter.getInstance(confMap).updateNode(nodeKey, node)) {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
                 patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
             } else {
@@ -199,7 +202,8 @@ public final class PatternNodes {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         //TODO: get from Redis
         if (!patternNodes.containsKey(levelKey)) {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter = new ConcurrentHashMap<>(getNodesFromCenter(levelKey));
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter
+                    = new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(levelKey));
             if (nodesFromCenter != null) {
                 logger.debug("get from center");
                 patternNodes.put(levelKey, nodesFromCenter);
@@ -212,11 +216,9 @@ public final class PatternNodes {
         return nodes;
     }
 
-    //TODO:
-    private Map<PatternNodeKey, PatternNode> getNodesFromCenter(PatternLevelKey levelKey) {
+    private Map<PatternNodeKey, PatternNode> getNodesFromLeaves(PatternLevelKey levelKey) {
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        //For Test
-        nodes.putAll(PatternLeaves.getInstance().getNodes(levelKey));
+        nodes.putAll(PatternLeaves.getInstance(confMap).getNodes(levelKey));
         logger.debug("nodes from leaves: " + nodes.keySet().toString());
         return nodes;
     }
@@ -226,7 +228,7 @@ public final class PatternNodes {
         if (!patternNodes.containsKey(nodeKey.getLevelKey())
                 || !patternNodes.get(nodeKey.getLevelKey()).containsKey(nodeKey)) {
             ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
-                    new ConcurrentHashMap<>(getNodesFromCenter(nodeKey.getLevelKey()));
+                    new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(nodeKey.getLevelKey()));
             if (nodesFromCenter != null) {
                 patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
             } else {
@@ -246,11 +248,6 @@ public final class PatternNodes {
         return patternNodes.get(nodeKey.getLevelKey()).get(nodeKey);
     }
 
-    //TODO:
-    private boolean setNodeToCenter(PatternNodeKey nodeKey, PatternNode node) {
-       return true;
-    }
-
     private int getProjectMaxLevel(String name) {
         int maxLevel = -1;
         for (PatternLevelKey key: patternNodes.keySet()) {
@@ -260,15 +257,6 @@ public final class PatternNodes {
             }
         }
         return maxLevel;
-    }
-
-    public String visualize() {
-        StringBuilder stringBuilder = new StringBuilder();
-        Set<String> projectNames = getAllProjectsName();
-        for (String name : projectNames) {
-            stringBuilder.append(visualize(name));
-        }
-        return stringBuilder.toString();
     }
 
     public String visualize(String name) {
@@ -303,9 +291,12 @@ public final class PatternNodes {
         return root.visualize();
     }
 
-    public String toString() {
+    public String toString(String projectName) {
         StringBuilder stringBuilder = new StringBuilder();
         for (Map.Entry<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> entry : patternNodes.entrySet()) {
+            if (!StringUtils.equals(entry.getKey().getProjectName(), projectName)) {
+                continue;
+            }
             for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
                 Map<String, String> jsonItems = new HashMap<>();
                 jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());

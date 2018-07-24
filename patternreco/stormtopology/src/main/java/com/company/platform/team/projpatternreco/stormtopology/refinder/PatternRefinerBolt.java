@@ -17,8 +17,10 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Created by admin on 2018/7/12.
@@ -28,6 +30,7 @@ public class PatternRefinerBolt implements IRichBolt {
     private static final Gson gson = new Gson();
 
     private OutputCollector collector;
+    private Map redisConfMap;
     private boolean replayTuple;
     private double leafSimilarity;
     private double decayRefactor;
@@ -45,6 +48,8 @@ public class PatternRefinerBolt implements IRichBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         this.replayTuple = false;
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get("redis"));
 
         lastBackupTime = 0;
         backupInterval = 10 * 60 * 1000;
@@ -64,7 +69,7 @@ public class PatternRefinerBolt implements IRichBolt {
             for (int i=1; i<11; i++) {
                 double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
                 boolean isLastLevel = (i==10) ? true : false;
-                Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
+                Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance(redisConfMap)
                         .mergePatternToNode(parentNodeKey, patternTokens, maxDist, isLastLevel);
                 if (nextLevelTuple == null) {
                    break;
@@ -76,7 +81,7 @@ public class PatternRefinerBolt implements IRichBolt {
             if (System.currentTimeMillis() - lastBackupTime > backupInterval) {
                 logger.info("back up pattern trees");
                 saveTreeToFile("tree/visualpatterntree", "");
-                backupTree("tree/patterntree");
+                backupTree("tree/patterntree", "");
                 lastBackupTime = System.currentTimeMillis();
             }
             collector.ack(tuple);
@@ -111,28 +116,36 @@ public class PatternRefinerBolt implements IRichBolt {
                 file.getParentFile().mkdirs();
             }
             FileWriter fw = new FileWriter(fileName);
-            String treeString = StringUtils.isEmpty(projectName)
-                    ? PatternNodes.getInstance().visualize()
-                    : PatternNodes.getInstance().visualize(projectName);
-            fw.write(treeString);
+            if (StringUtils.isEmpty(projectName)) {
+                Set<String> projectNames = PatternNodes.getInstance(redisConfMap).getAllProjectsName();
+                for (String name : projectNames) {
+                    fw.write(PatternNodes.getInstance(redisConfMap).visualize(name));
+                }
+            } else {
+                fw.write(PatternNodes.getInstance(redisConfMap).visualize(projectName));
+            }
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void backupTree(String fileName) {
+    public void backupTree(String fileName, String projectName) {
         try {
             File file = new File(fileName);
             if (!file.getParentFile().exists()) {
                 file.getParentFile().mkdirs();
             }
+
             FileWriter fw = new FileWriter(fileName);
-                try {
-                    fw.write(PatternNodes.getInstance().toString());
-                } catch (IOException e) {
-                    e.printStackTrace();
+            if (StringUtils.isEmpty(projectName)) {
+                Set<String> projectNames = PatternNodes.getInstance(redisConfMap).getAllProjectsName();
+                for (String name : projectNames) {
+                    fw.write(PatternNodes.getInstance(redisConfMap).toString(name));
                 }
+            } else {
+                fw.write(PatternNodes.getInstance(redisConfMap).toString(projectName));
+            }
             fw.close();
         } catch (IOException e) {
             e.printStackTrace();

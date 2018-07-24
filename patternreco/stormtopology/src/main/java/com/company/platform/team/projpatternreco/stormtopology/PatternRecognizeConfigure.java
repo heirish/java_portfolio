@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RunningType;
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import org.apache.storm.Config;

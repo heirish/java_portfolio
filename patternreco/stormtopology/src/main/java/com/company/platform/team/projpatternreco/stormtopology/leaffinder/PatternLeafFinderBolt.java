@@ -29,6 +29,7 @@ public class PatternLeafFinderBolt implements IRichBolt {
     private OutputCollector collector;
     private boolean replayTuple;
     private double leafSimilarity;
+    private Map redisConfMap;
 
     public PatternLeafFinderBolt(double leafSimilarity) {
         this.leafSimilarity = leafSimilarity;
@@ -37,6 +38,9 @@ public class PatternLeafFinderBolt implements IRichBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         replayTuple = true;
+
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get("redis"));
     }
 
     @Override
@@ -48,7 +52,7 @@ public class PatternLeafFinderBolt implements IRichBolt {
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
             List<String> bodyTokens = Preprocessor.transform(logMap.get(Constants.FIELD_BODY));
-            PatternNodeKey nodeKey = PatternLeaves.getInstance()
+            PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap)
                     .getParentNodeId(bodyTokens, levelKey, 1 - leafSimilarity,
                             Constants.FINDCLUSTER_TOLERANCE_TIMES);
 

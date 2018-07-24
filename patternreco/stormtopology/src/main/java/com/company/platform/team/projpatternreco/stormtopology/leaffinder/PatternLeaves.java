@@ -1,8 +1,8 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
-import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
@@ -22,20 +22,22 @@ import java.util.concurrent.ConcurrentHashMap;
 // TODO:thread safe
 public final class PatternLeaves {
     private static final Logger logger = LoggerFactory.getLogger(PatternLeaves.class);
-    private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternLeaves;
-
-    private static PatternLeaves leaves;
     private static final Gson gson = new Gson();
 
-    public static synchronized PatternLeaves getInstance() {
+    private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternLeaves;
+    private Map confMap;
+    private static PatternLeaves leaves;
+
+    public static synchronized PatternLeaves getInstance(Map conf) {
         if (leaves == null) {
-            leaves = new PatternLeaves();
+            leaves = new PatternLeaves(conf);
         }
         return leaves;
     }
 
-    private PatternLeaves() {
-        patternLeaves = new ConcurrentHashMap<>();
+    private PatternLeaves(Map conf) {
+        this.confMap = conf;
+        this.patternLeaves = new ConcurrentHashMap<>();
         try {
             Map<PatternNodeKey, PatternNode> nodes = readFromFile("tree/patternLeaves");
             //split nodes by LevelKey
@@ -106,16 +108,20 @@ public final class PatternLeaves {
 
         nodeKey = new PatternNodeKey(levelKey);
         PatternNode node = new PatternNode(tokens);
-        //TODO:add to redis
-        if (patternLeaves.containsKey(levelKey)) {
-            patternLeaves.get(levelKey).put(nodeKey, node);
-        } else {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
-            nodes.put(nodeKey, node);
-            patternLeaves.put(levelKey, nodes);
+        if (RedisNodeCenter.getInstance(confMap).addNode(nodeKey, node)) {
+            if (patternLeaves.containsKey(levelKey)) {
+                patternLeaves.get(levelKey).put(nodeKey, node);
+            } else {
+                ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
+                nodes.put(nodeKey, node);
+                patternLeaves.put(levelKey, nodes);
+            }
+            logger.debug("new node added: " + nodeKey.toString());
+            return nodeKey;
         }
-        logger.debug("new node added: " + nodeKey.toString());
-        return nodeKey;
+
+        logger.warn("add to node center failed.");
+        return null;
     }
 
     public String toString() {
@@ -173,9 +179,9 @@ public final class PatternLeaves {
     public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
         //For java pass object by reference
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        //TODO: get from Redis
         if (!patternLeaves.containsKey(levelKey)) {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter = new ConcurrentHashMap<>(getNodesFromCenter(levelKey));
+            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter
+                    = new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(levelKey));
             if (nodesFromCenter != null) {
                 patternLeaves.put(levelKey, nodesFromCenter);
                 nodes.putAll(nodesFromCenter);
@@ -184,11 +190,6 @@ public final class PatternLeaves {
             nodes.putAll(patternLeaves.get(levelKey));
         }
 
-        return nodes;
-    }
-
-    private Map<PatternNodeKey, PatternNode> getNodesFromCenter(PatternLevelKey levelKey) {
-        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
         return nodes;
     }
 
@@ -220,12 +221,14 @@ public final class PatternLeaves {
 
     //for test
     public void addNode(PatternNodeKey nodeKey, PatternNode node) {
-        if (patternLeaves.containsKey(nodeKey.getLevelKey())) {
-            patternLeaves.get(nodeKey.getLevelKey()).put(nodeKey, node);
-        } else {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
-            nodes.put(nodeKey, node);
-            patternLeaves.put(nodeKey.getLevelKey(), nodes);
+        if (RedisNodeCenter.getInstance(confMap).addNode(nodeKey, node)) {
+            if (patternLeaves.containsKey(nodeKey.getLevelKey())) {
+                patternLeaves.get(nodeKey.getLevelKey()).put(nodeKey, node);
+            } else {
+                ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
+                nodes.put(nodeKey, node);
+                patternLeaves.put(nodeKey.getLevelKey(), nodes);
+            }
         }
     }
 }

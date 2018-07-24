@@ -6,6 +6,7 @@ import com.company.platform.team.projpatternreco.stormtopology.leaffinder.Patter
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafFinderBolt;
 import com.company.platform.team.projpatternreco.stormtopology.refinder.PatternRefinerBolt;
 import com.company.platform.team.projpatternreco.stormtopology.refinder.UnmergedLogReducerBolt;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RunningType;
 import org.apache.commons.cli.*;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Logger;
@@ -86,7 +87,7 @@ public final class PatternRecognizeTopology {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
         props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, config.getFetchSizeBytes());
         props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, config.getFetchSizeBytes());
-        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.company.platform.team.projpatternreco.stormtopology.RoundRobinPartitioner");
+        props.put(ProducerConfig.PARTITIONER_CLASS_CONFIG, "com.company.platform.team.projpatternreco.stormtopology.utils.RoundRobinPartitioner");
 
         //// create KafkaBolt
         String outputTopic = config.getConfigMap("topics").get("unmergedLog").toString();
@@ -166,7 +167,7 @@ public final class PatternRecognizeTopology {
         if (commands.hasOption("c")) {
             confFile = commands.getOptionValue("c");
         } else {
-            confFile = "PatternRecognize.json";
+            confFile = "PatternRecognize-com.json";
             logger.info("Using default config file: [" + confFile + "].");
         }
         if (commands.hasOption("n")) {
