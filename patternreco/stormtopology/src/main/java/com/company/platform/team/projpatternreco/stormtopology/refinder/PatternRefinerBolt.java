@@ -1,7 +1,9 @@
 package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafSimilarity;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
+import com.company.platform.team.projpatternreco.stormtopology.utils.PatternRecognizeException;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
 import org.apache.commons.lang.StringUtils;
@@ -47,7 +49,7 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.replayTuple = false;
+        this.replayTuple = false; // for node not found, will never find it.
         this.redisConfMap = new HashMap<String, Object>();
         this.redisConfMap.putAll((Map)map.get("redis"));
 
@@ -66,32 +68,36 @@ public class PatternRefinerBolt implements IRichBolt {
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
             //merge i-1, add i
-            for (int i=1; i<11; i++) {
-                double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
-                boolean isLastLevel = (i==10) ? true : false;
+            for (int i = 1; i < 11; i++) {
+                double decayedSimilarity = 1-PatternLeafSimilarity.getInstance(-1)
+                        .getSimilarity(parentNodeKey.getProjectName())* Math.pow(1-decayRefactor, i);
+                boolean isLastLevel = (i == 10) ? true : false;
                 Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance(redisConfMap)
-                        .mergePatternToNode(parentNodeKey, patternTokens, maxDist, isLastLevel);
+                        .mergePatternToNode(parentNodeKey, patternTokens, 1- decayedSimilarity, isLastLevel);
                 if (nextLevelTuple == null) {
-                   break;
+                    break;
                 }
                 parentNodeKey = nextLevelTuple.getLeft();
                 patternTokens = nextLevelTuple.getRight();
             }
 
             if (System.currentTimeMillis() - lastBackupTime > backupInterval) {
-                logger.info("back up pattern trees");
-                saveTreeToFile("tree/visualpatterntree", "");
-                backupTree("tree/patterntree", "");
+                //logger.info("back up pattern trees");
+                //saveTreeToFile("tree/visualpatterntree", "");
+                //backupTree("tree/patterntree", "");
                 lastBackupTime = System.currentTimeMillis();
             }
             collector.ack(tuple);
-        } catch (Exception e) {
-            collector.reportError(e);
+        } catch (PatternRecognizeException pre) {
+            collector.reportError(pre);
             if (replayTuple) {
                 collector.fail(tuple);
             } else {
                 collector.ack(tuple);
             }
+        } catch (Exception e) {
+            collector.reportError(e);
+            collector.ack(tuple);
         }
     }
 

@@ -10,7 +10,7 @@ import java.security.InvalidParameterException;
 public final class PatternLevelKey {
     private String projectName;
     private int level;
-    private static final String DELIMITER = "#@#";
+    private static final String DELIMITER = "¬";
 
     private int hashCode;
 

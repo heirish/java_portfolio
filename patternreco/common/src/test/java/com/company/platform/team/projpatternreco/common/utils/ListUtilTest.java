@@ -1,6 +1,5 @@
 package com.company.platform.team.projpatternreco.common.utils;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
 import org.apache.log4j.Logger;
 import org.junit.Test;
 
@@ -16,25 +15,23 @@ import java.util.regex.Pattern;
  * Created by admin on 2018/6/22.
  */
 public class ListUtilTest {
-    private static final Logger logger = Logger.getLogger("");
+    private static final String DELIMITER = "#@#";
 
     @Test
     public void removeExcessiveDuplicatesTest(){
         List<String> tokens = Arrays.asList(new String[] {" ", " ", " ", "abc"," ", " ", "esdf", "*", ",", "."});
         List<String> newTokens = ListUtil.removeExcessiveDuplicates(tokens, " ", 1);
-        logger.info(newTokens);
-        logger.info(String.join("", newTokens));
     }
 
     @Test
     public void splitWithStringTest()
     {
         String key = String.format("%s%s%s%s%s",
-                "test", Constants.PATTERN_TOKENS_DELIMITER,
-                "0", Constants.PATTERN_TOKENS_DELIMITER,
+                "test", DELIMITER,
+                "0", DELIMITER,
                 "waefsdf");
-        String[] fields = key.split(Constants.PATTERN_TOKENS_DELIMITER);
-        System.out.println(key.split(Constants.PATTERN_TOKENS_DELIMITER)[2]);
+        String[] fields = key.split(DELIMITER);
+        System.out.println(key.split(DELIMITER)[2]);
         System.out.println(Arrays.toString(fields));
     }
 

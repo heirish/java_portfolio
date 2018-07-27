@@ -1,6 +1,7 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.common.data.PatternNode;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
@@ -51,7 +52,8 @@ public class ComputeTimeConsumeTest {
     private static void preparePatternTree(List<String> logs) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            PatternLeaves.getInstance(config).addNewLeaf(projectName, tokens);
+            PatternLeaves.getInstance(config).addNode(new PatternLevelKey(projectName, 0),
+                    new PatternNode(tokens));
         }
     }
 

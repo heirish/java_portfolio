@@ -1,13 +1,12 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
-import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
+import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import edu.emory.mathcs.backport.java.util.Collections;
 import org.apache.commons.cli.*;
-import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -81,7 +80,8 @@ public class ComputeCPULoadTest {
     private static void preparePatternTree(List<String> logs, PatternLeaves leaves) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            leaves.addNewLeaf(projectName, tokens);
+            leaves.addNode(new PatternLevelKey(projectName, 0),
+                    new PatternNode(tokens));
         }
     }
 

@@ -1,11 +1,11 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
-import clojure.lang.Cons;
-import clojure.lang.Obj;
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
+import com.company.platform.team.projpatternreco.common.data.PatternNode;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -16,7 +16,6 @@ import org.apache.storm.tuple.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Type;
 import java.util.*;
 
 /**
@@ -47,9 +46,11 @@ public class PatternLeafAppenderBolt implements IRichBolt {
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
-            List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
-            PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap).addNewLeaf(projectName, tokens);
+            PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
+            PatternNode node = new PatternNode(Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER)));
 
+            //PatternNodeKey nodeKey = RedisNodeCenter.getInstance(redisConfMap).addNode(levelKey, node);
+            PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap).addNode(levelKey, node);
             if (nodeKey == null) {
                 logMap.put(Constants.FIELD_LEAFID, "");
             } else  {

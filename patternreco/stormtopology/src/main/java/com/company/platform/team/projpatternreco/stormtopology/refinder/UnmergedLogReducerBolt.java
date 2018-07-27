@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology.refinder;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;

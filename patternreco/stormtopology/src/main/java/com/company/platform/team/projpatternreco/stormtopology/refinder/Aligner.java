@@ -11,9 +11,9 @@ import java.util.List;
 public class Aligner {
     private static NeedlemanWunschAligner aligner = new NeedlemanWunschAligner(1, -1, -2);
 
-    public static List<String> retrievePattern(List<String> sequence1, List<String> sequence2) throws Exception {
-        List<String> alignedSequence = aligner.traceBack(sequence1, sequence2,
-                aligner.createScoreMatrix(sequence1, sequence2));
+    public static List<String> retrievePattern(List<String> tokensLeft, List<String> tokensRight) throws Exception {
+        List<String> alignedSequence = aligner.traceBack(tokensLeft, tokensRight,
+                aligner.createScoreMatrix(tokensLeft, tokensRight));
         return ListUtil.removeExcessiveDuplicates(alignedSequence, "*", 5);
     }
 }

@@ -1,10 +1,11 @@
 package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.google.gson.Gson;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -15,9 +16,7 @@ import org.apache.storm.tuple.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Created by admin on 2018/7/12.
@@ -30,10 +29,15 @@ public class PatternLeafFinderBolt implements IRichBolt {
     private boolean replayTuple;
     private double leafSimilarity;
     private Map redisConfMap;
+    private int bodyLengthMax;
+    private int tokenCountMax;
 
-    public PatternLeafFinderBolt(double leafSimilarity) {
+    public PatternLeafFinderBolt(double leafSimilarity, int bodyLengthMax, int tokenCountMax) {
         this.leafSimilarity = leafSimilarity;
+        this.bodyLengthMax = bodyLengthMax;
+        this.tokenCountMax = tokenCountMax;
     }
+
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
@@ -50,26 +54,47 @@ public class PatternLeafFinderBolt implements IRichBolt {
             Map<String, String> logMap = gson.fromJson(log, Map.class);
 
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
+            //test
+            //if (!StringUtils.equals(projectName, "Band_android")) {
+            //    collector.ack(tuple);
+            //}
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            List<String> bodyTokens = Preprocessor.transform(logMap.get(Constants.FIELD_BODY));
-            PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap)
-                    .getParentNodeId(bodyTokens, levelKey, 1 - leafSimilarity,
-                            Constants.FINDCLUSTER_TOLERANCE_TIMES);
+            String body = logMap.get(Constants.FIELD_BODY);
+            if (!StringUtils.isBlank(body)) {
+                if (body.length() > bodyLengthMax) {
+                    logger.info("log body is too long, the max length we can handle is " + bodyLengthMax + ",will eliminate the exceeded");
+                    body = body.substring(0, bodyLengthMax);
+                }
+                List<String> bodyTokens = Preprocessor.transform(body);
 
-            String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, bodyTokens);
-            if (nodeKey == null) { // to leafaddbolt
-                logMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
-                collector.emit(Constants.PATTERN_UNADDED_STREAMID, new Values(projectName, gson.toJson(logMap)));
-            } else {
-                // to kafka
-                Map<String, String> valueMap = new HashMap<>();
-                valueMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
-                valueMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
-                collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(gson.toJson(valueMap)));
+                List<String> tokensLeft = bodyTokens;
+                if (bodyTokens.size() > tokenCountMax) {
+                    logger.warn("sequenceLeft exceeds the max length we can handle, will eliminate the exceeded part to "
+                            + Constants.IDENTIFY_EXCEEDED_TYPE + ",tokens:" + Arrays.toString(tokensLeft.toArray()));
+                    tokensLeft = new ArrayList(bodyTokens.subList(0, tokenCountMax - 1));
+                    tokensLeft.add(Constants.IDENTIFY_EXCEEDED_TYPE);
+                }
 
-                // to es
-                logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
-                collector.emit(Constants.LOG_OUT_STREAMID, new Values(gson.toJson(logMap)));
+                double projectLeafSimilarity = PatternLeafSimilarity.getInstance(leafSimilarity).getSimilarity(projectName);
+                PatternNodeKey nodeKey = PatternLeaves.getInstance(redisConfMap)
+                        .getParentNodeId(tokensLeft, levelKey, 1-projectLeafSimilarity,
+                                Constants.FINDCLUSTER_TOLERANCE_TIMES);
+
+                String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, tokensLeft);
+                if (nodeKey == null) { // to leafaddbolt
+                    logMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
+                    collector.emit(Constants.PATTERN_UNADDED_STREAMID, new Values(projectName, gson.toJson(logMap)));
+                } else {
+                    // to kafka
+                    Map<String, String> valueMap = new HashMap<>();
+                    valueMap.put(Constants.FIELD_PATTERNID, nodeKey.toString());
+                    valueMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
+                    collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(gson.toJson(valueMap)));
+
+                    // to es
+                    logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
+                    collector.emit(Constants.LOG_OUT_STREAMID, new Values(gson.toJson(logMap)));
+                }
             }
             collector.ack(tuple);
         } catch (Exception e) {

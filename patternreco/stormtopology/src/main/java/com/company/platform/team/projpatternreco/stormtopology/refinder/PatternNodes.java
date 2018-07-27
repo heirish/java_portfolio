@@ -4,10 +4,7 @@ import com.company.platform.team.projpatternreco.common.data.*;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
 import com.company.platform.team.projpatternreco.stormtopology.utils.PatternRecognizeException;
 import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
-import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeaves;
-import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
-import com.google.gson.Gson;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -23,11 +20,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 // TODO:thread safe
 public final class PatternNodes {
-    private static final Gson gson = new Gson();
     private static final Logger logger = LoggerFactory.getLogger(PatternNodes.class);
 
     private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternNodes;
-    private Map confMap;
+    private RedisNodeCenter nodeCenter;
     private static PatternNodes forest;
 
     public static synchronized PatternNodes getInstance(Map conf) {
@@ -40,7 +36,7 @@ public final class PatternNodes {
     private PatternNodes(Map conf) {
         try {
             patternNodes = new ConcurrentHashMap<>();
-            this.confMap = conf;
+            nodeCenter = RedisNodeCenter.getInstance(conf);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -54,8 +50,11 @@ public final class PatternNodes {
             logger.error("invalid parameters. tokens or levelKey is null.");
             throw new InvalidParameterException("invalid parameters, tokens or levelKey is null.");
         }
-
         Map<PatternNodeKey, PatternNode> levelNodes = getNodes(levelKey);
+        if (levelNodes == null || levelNodes.size() == 0) {
+            return null;
+        }
+
         PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, maxDistance);
         if (nodeKey != null) {
             return nodeKey;
@@ -63,9 +62,12 @@ public final class PatternNodes {
 
         int triedTimes = 0;
         do {
-            Map<PatternNodeKey, PatternNode> newLevelNodes = getNodes(levelKey);
-            MapDifference<PatternNodeKey, PatternNode> diff = Maps.difference(levelNodes, newLevelNodes);
-            nodeKey = findNodeIdFromNodes(tokens, diff.entriesOnlyOnRight(), maxDistance);
+            Map<PatternNodeKey, PatternNode> newlevelNodes = getNewNodes(levelKey);
+            if (newlevelNodes == null || newlevelNodes.size() == 0) {
+                triedTimes++;
+                continue;
+            }
+            nodeKey = findNodeIdFromNodes(tokens, newlevelNodes, maxDistance);
             if (nodeKey != null) {
                 return nodeKey;
             }
@@ -89,7 +91,7 @@ public final class PatternNodes {
         PatternNode parentNode = getNode(key);
         if (parentNode == null) {
             logger.error("can not find node for key: " + key);
-            throw new PatternRecognizeException("can not find node for key: " + key);
+            throw new InvalidParameterException("can not find node for key: " + key + ",may be the key is invalid");
         }
 
         try {
@@ -102,21 +104,22 @@ public final class PatternNodes {
             if (!parentNode.hasParent() && !isLastLevel) {
                 PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, maxDist, 1);
                 if (grandNodeKey == null) {
-                    grandNodeKey = new PatternNodeKey(levelKey);
-                    addNode(grandNodeKey, new PatternNode(mergedTokens));
+                    grandNodeKey = addNode(levelKey, new PatternNode(mergedTokens));
+                    if (grandNodeKey != null) {
+                        parentNode.setParent(grandNodeKey);
+                        grandNodeAdded = true;
+                    }
                 }
-                parentNode.setParent(grandNodeKey);
-                grandNodeAdded = true;
             }
 
             boolean parentNodeUpdated = false;
-            if (!mergedTokens.equals(parentNode.getPatternTokens())) {
+            if (grandNodeAdded || !mergedTokens.equals(parentNode.getPatternTokens())) {
                 parentNode.updatePatternTokens(mergedTokens);
                 updateNode(key, parentNode);
                 parentNodeUpdated = true;
             }
 
-            if (grandNodeAdded || parentNodeUpdated) {
+            if (parentNodeUpdated && parentNode.hasParent()) {
                 return Pair.of(parentNode.getParentId(), mergedTokens);
             }
         } catch (Exception e) {
@@ -149,31 +152,29 @@ public final class PatternNodes {
         return projectList;
     }
 
-    public boolean addNode(PatternNodeKey nodeKey, PatternNode node ) {
-        if(RedisNodeCenter.getInstance(confMap).addNode(nodeKey, node)) {
-            if (patternNodes.containsKey(nodeKey.getLevelKey())) {
-                patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
+    public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node ) {
+        PatternNodeKey nodeKey = getNodeByRepresentTokens(levelKey, node.getRepresentTokens());
+        if (nodeKey == null) {
+            nodeKey = nodeCenter.addNode(levelKey, node);
+            if(nodeKey != null) {
+                if (patternNodes.containsKey(nodeKey.getLevelKey())) {
+                    patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
+                } else {
+                    ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
+                    nodes.put(nodeKey, node);
+                    patternNodes.put(nodeKey.getLevelKey(), nodes);
+                }
+                logger.debug("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
             } else {
-                ConcurrentHashMap<PatternNodeKey, PatternNode> nodes = new ConcurrentHashMap<>();
-                nodes.put(nodeKey, node);
-                patternNodes.put(nodeKey.getLevelKey(), nodes);
+                logger.warn("add node to PatternNodes failed, key:" + nodeKey.getLevelKey() + ", " + node.toString());
             }
-            logger.debug("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
-            return true;
         }
-        return false;
+        return nodeKey;
     }
 
     private boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
         if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
-                    new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(nodeKey.getLevelKey()));
-            if (nodesFromCenter == null) {
-                logger.info("Can't find level contains node [" + nodeKey.toString() + "] for update.");
-                return false;
-            } else {
-                patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
-            }
+            getNewNodes(nodeKey.getLevelKey());
         }
 
         assert patternNodes.containsKey(nodeKey.getLevelKey()) : "Something wrong in getNodesFromCenter";
@@ -183,7 +184,7 @@ public final class PatternNodes {
             return false;
         }
 
-        if(RedisNodeCenter.getInstance(confMap).updateNode(nodeKey, node)) {
+        if(nodeCenter.updateNode(nodeKey, node)) {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
                 patternNodes.get(nodeKey.getLevelKey()).put(nodeKey, node);
             } else {
@@ -197,43 +198,52 @@ public final class PatternNodes {
         return false;
     }
 
-    private Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
-        //For java pass object by reference
-        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        //TODO: get from Redis
-        if (!patternNodes.containsKey(levelKey)) {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter
-                    = new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(levelKey));
-            if (nodesFromCenter != null) {
-                logger.debug("get from center");
-                patternNodes.put(levelKey, nodesFromCenter);
-                nodes.putAll(nodesFromCenter);
+    public PatternNodeKey getNodeByRepresentTokens(PatternLevelKey levelKey, List<String> representTokens) {
+        if (patternNodes.containsKey(levelKey)) {
+            for (Map.Entry<PatternNodeKey, PatternNode> node : patternNodes.get(levelKey).entrySet()) {
+                if (node.getValue().getRepresentTokens().equals(representTokens)) {
+                    return node.getKey();
+                }
             }
-        } else {
-            nodes.putAll(patternNodes.get(levelKey));
         }
-
-        return nodes;
+        return null;
     }
 
-    private Map<PatternNodeKey, PatternNode> getNodesFromLeaves(PatternLevelKey levelKey) {
-        Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
-        nodes.putAll(PatternLeaves.getInstance(confMap).getNodes(levelKey));
-        logger.debug("nodes from leaves: " + nodes.keySet().toString());
-        return nodes;
+    public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
+        if (!patternNodes.containsKey(levelKey)) {
+            getNewNodes(levelKey);
+        }
+
+        if (patternNodes.containsKey(levelKey)) {
+            return patternNodes.get(levelKey);
+        }
+
+        return null;
+    }
+
+    private Map<PatternNodeKey, PatternNode> getNewNodes(PatternLevelKey levelKey) {
+        Set<PatternNodeKey> localNodeKeys = null;
+        if (patternNodes.containsKey(levelKey)) {
+            localNodeKeys = patternNodes.get(levelKey).keySet();
+        }
+        Map<PatternNodeKey, PatternNode> newNodesFromCenter = nodeCenter.getLevelNewNodes(localNodeKeys, levelKey);
+        if (newNodesFromCenter != null && newNodesFromCenter.size() > 0) {
+            if (patternNodes.containsKey(levelKey)) {
+                patternNodes.get(levelKey).putAll(newNodesFromCenter);
+            } else {
+                patternNodes.put(levelKey, new ConcurrentHashMap<>(newNodesFromCenter));
+            }
+        } else {
+            logger.info("no new nodes from center for key: " + levelKey.toString());
+        }
+        return newNodesFromCenter;
     }
 
     //private PatternNode getNode(PatternNodeKey nodeKey) {
     public PatternNode getNode(PatternNodeKey nodeKey) {
         if (!patternNodes.containsKey(nodeKey.getLevelKey())
                 || !patternNodes.get(nodeKey.getLevelKey()).containsKey(nodeKey)) {
-            ConcurrentHashMap<PatternNodeKey, PatternNode> nodesFromCenter =
-                    new ConcurrentHashMap<>(RedisNodeCenter.getInstance(confMap).getProjectLevelNodes(nodeKey.getLevelKey()));
-            if (nodesFromCenter != null) {
-                patternNodes.put(nodeKey.getLevelKey(), nodesFromCenter);
-            } else {
-                logger.warn("can not find level nodes from center, level key: " + nodeKey.getLevelKey().toString());
-            }
+            getNewNodes(nodeKey.getLevelKey());
         }
 
         if (!patternNodes.containsKey(nodeKey.getLevelKey())) {
@@ -268,7 +278,7 @@ public final class PatternNodes {
         }
         for (int i=maxLevel; i>=0; i--) {
             nodes = getNodes(new PatternLevelKey(name, i));
-            if (nodes == null) {
+            if (nodes == null || nodes.size() == 0) {
                 continue;
             }
             logger.debug(String.format("found %s nodes for level %s.", nodes.size(), i));
@@ -298,21 +308,28 @@ public final class PatternNodes {
                 continue;
             }
             for (Map.Entry<PatternNodeKey, PatternNode> entryNode : entry.getValue().entrySet()) {
-                Map<String, String> jsonItems = new HashMap<>();
-                jsonItems.put(Constants.FIELD_PATTERNID, entryNode.getKey().toString());
-                jsonItems.put(Constants.FIELD_REPRESENTTOKENS,
-                        String.join(Constants.PATTERN_TOKENS_DELIMITER, entryNode.getValue().getRepresentTokens()));
-                jsonItems.put(Constants.FIELD_PATTERNTOKENS,
-                        String.join(Constants.PATTERN_TOKENS_DELIMITER, entryNode.getValue().getPatternTokens()));
-                if (entryNode.getValue().hasParent()) {
-                    jsonItems.put("parentId", entryNode.getValue().getParentId().toString());
-                } else {
-                    jsonItems.put("parentId", "");
-                }
-                stringBuilder.append(gson.toJson(jsonItems));
+                stringBuilder.append(entryNode.getKey().toString() + " : ");
+                stringBuilder.append(entryNode.getValue().toJson());
+                stringBuilder.append(System.getProperty("line.separator"));
                 stringBuilder.append(System.getProperty("line.separator"));
             }
         }
         return stringBuilder.toString();
+    }
+
+    //test
+    public void deleteProjectNodes(String projectName) {
+        for(int i=0; i< 11; i++) {
+            PatternLevelKey levelKey = new PatternLevelKey(projectName, i);
+            if (patternNodes.containsKey(levelKey)) {
+                patternNodes.remove(levelKey);
+            }
+
+            if (patternNodes.containsKey(levelKey)) {
+                logger.info("delete levelKey " + levelKey.toString() + "failed.");
+            } else {
+                logger.info("delete levelKey " + levelKey.toString() + "success.");
+            }
+        }
     }
 }

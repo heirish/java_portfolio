@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
-import com.company.platform.team.projpatternreco.common.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.LogIndexBolt;
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafAppenderBolt;
 import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafFinderBolt;
@@ -51,29 +51,25 @@ public final class PatternRecognizeTopology {
 
     public PatternRecognizeTopology() {
         config = PatternRecognizeConfigure.getInstance(confFile, runningType);
+        //first get redis data to local cache
     }
 
     private TopologyBuilder createTopologyBuilder() {
         TopologyBuilder topologyBuilder = new TopologyBuilder();
 
-
         // for LeafFinder
         String normalLogTopic = config.getConfigMap("topics").get("normalLog").toString();
-        String crashLogTopic = config.getConfigMap("topics").get("crashLog").toString();
         String normalLogTopicSpout = normalLogTopic + "-spout";
-        String crashLogTopicSpout = crashLogTopic + "-spout";
         topologyBuilder.setSpout(normalLogTopicSpout,
                 createKafkaSpout(normalLogTopic), config.getParallelismCount(normalLogTopicSpout));
-        //topologyBuilder.setSpout(crashLogTopic,
-        //        createKafkaSpout(crashLogTopic), config.getParallelismCount(crashLogTopicSpout));
 
         String leafFinderBoltName = "PatternLeafFinderBolt";
         String leafAppenderBoltName = "PatternLeafAppenderBolt";
         String logIndexBoltName = "LogIndexBolt";
-        topologyBuilder.setBolt(leafFinderBoltName, new PatternLeafFinderBolt(config.getLeafSimilarity()),
+        topologyBuilder.setBolt(leafFinderBoltName,
+                new PatternLeafFinderBolt(config.getLeafSimilarity(), config.getBodyLengthMax(), config.getTokenCountMax()),
                 config.getParallelismCount(leafFinderBoltName))
                 .shuffleGrouping(normalLogTopicSpout);
-               // .shuffleGrouping(crashLogTopic);
         topologyBuilder.setBolt(leafAppenderBoltName, new PatternLeafAppenderBolt(), config.getParallelismCount(leafAppenderBoltName))
                 .fieldsGrouping(leafFinderBoltName, Constants.PATTERN_UNADDED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
         topologyBuilder.setBolt(logIndexBoltName, new LogIndexBolt(), config.getParallelismCount(logIndexBoltName))
@@ -111,7 +107,7 @@ public final class PatternRecognizeTopology {
         topologyBuilder.setBolt(reducerBoltName, new UnmergedLogReducerBolt(60, 500),
                 config.getParallelismCount(reducerBoltName))
                 .shuffleGrouping(unmergedLogTopicSpout);
-        topologyBuilder.setBolt(refinerBoltName, new PatternRefinerBolt(config.getLeafSimilarity(), 0.9),
+        topologyBuilder.setBolt(refinerBoltName, new PatternRefinerBolt(config.getLeafSimilarity(), config.getDecayFactor()),
                 config.getParallelismCount(refinerBoltName))
                 .fieldsGrouping(reducerBoltName, Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
 
@@ -154,7 +150,7 @@ public final class PatternRecognizeTopology {
     private static void parseArgs(String[] args) throws Exception {
         Options options = new Options();
         options.addOption("h", "help", false, "show help");
-        options.addOption("c", "conf", true, "configure file");
+        options.addOption("f", "file", true, "configure file");
         options.addOption("n", "name", true, "topology name");
         options.addOption("t", "runningtype", true, "running type");
 
@@ -164,8 +160,9 @@ public final class PatternRecognizeTopology {
             showHelp(options);
         }
 
-        if (commands.hasOption("c")) {
-            confFile = commands.getOptionValue("c");
+        // -c storm reserved o ption
+        if (commands.hasOption("f")) {
+            confFile = commands.getOptionValue("f");
         } else {
             confFile = "PatternRecognize-com.json";
             logger.info("Using default config file: [" + confFile + "].");

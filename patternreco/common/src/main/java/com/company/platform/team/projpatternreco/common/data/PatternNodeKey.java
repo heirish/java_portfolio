@@ -8,7 +8,7 @@ import java.util.UUID;
  * Created by admin on 2018/7/6.
  */
 public final class PatternNodeKey implements Comparable<PatternNodeKey>{
-    private static final String DELIMITER = "#@#";
+    private static final String DELIMITER = "?";
 
     private String id;
     private PatternLevelKey levelKey;

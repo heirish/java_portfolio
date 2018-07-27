@@ -14,7 +14,7 @@ import java.util.Map;
  * Created by admin on 2018/6/21.
  */
 public final class PatternNode {
-    private static final String DELIMITER = "#@#";
+    private static final String DELIMITER = "¬";
     private static final String MEMBER_NAME_PATTERN = "patternTokens";
     private static final String MEMBER_NAME_REPRESENT = "representTokens";
     private static final String MEMBER_NAME_PARENTKEY = "parentNodeKey";

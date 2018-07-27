@@ -13,12 +13,10 @@
   },
   "topics":{
     "normalLog": "normal-logs",
-    "crashLog": "crash-logs",
     "unmergedLog": "pattern-tokens"
   },
   "parallelismCount":{
     "normal-logs-spout": 4,
-    "crash-logs-spout": 4,
     "pattern-tokens-spout": 4,
 
     "PatternLeafFinderBolt": 20,
@@ -29,6 +27,10 @@
     "PatternRefinerBolt": 8
   },
   "patternreco":{
-    "leafSimilarity": 0.9
+    "leafSimilarity": 0.9,
+    "leavesCountMax": 500,
+    "decayFactor": 0.1,
+    "bodyLengthMax": 5000,
+    "tokenCountMax": 200
   }
 }
