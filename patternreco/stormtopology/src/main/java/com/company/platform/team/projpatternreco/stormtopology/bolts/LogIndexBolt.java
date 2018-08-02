@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
+package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;

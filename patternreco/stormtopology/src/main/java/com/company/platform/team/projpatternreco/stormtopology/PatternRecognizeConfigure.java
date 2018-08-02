@@ -109,26 +109,6 @@ public class PatternRecognizeConfigure {
         return getIntegerValueFromMap("parallelismCount", parallelismBolt, DEFAULT_WORKERS);
     }
 
-    public Double getLeafSimilarity() {
-        return getDoubleValueFromMap("patternreco", "leafSimilarity", 0.9);
-    }
-
-    public int getBodyLengthMax() {
-        return getIntegerValueFromMap("patternreco", "bodyLengthMax", 5000);
-    }
-
-    public int getTokenCountMax() {
-        return getIntegerValueFromMap("patternreco", "tokenCountMax", 200);
-    }
-
-    public int getLeavesCountMax() {
-        return getIntegerValueFromMap("patternreco", "leavesCountMax", 500);
-    }
-
-    public Double getDecayFactor() {
-        return getDoubleValueFromMap("patternreco", "decayFactor", 0.9);
-    }
-
     public String getKafkaBrokerHosts() {
         return getStringValueFromMap("kafka", "brokers");
     }

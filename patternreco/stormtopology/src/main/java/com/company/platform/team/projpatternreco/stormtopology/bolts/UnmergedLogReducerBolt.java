@@ -1,5 +1,6 @@
-package com.company.platform.team.projpatternreco.stormtopology.refinder;
+package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
+import com.company.platform.team.projpatternreco.stormtopology.utils.Aligner;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
@@ -11,6 +12,8 @@ import org.apache.storm.topology.OutputFieldsDeclarer;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
 import org.apache.storm.tuple.Values;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -19,18 +22,15 @@ import java.util.*;
  */
 public class UnmergedLogReducerBolt implements IRichBolt {
     private static final Gson gson  =  new Gson();
+    private static final Logger logger = LoggerFactory.getLogger(UnmergedLogReducerBolt.class);
 
     private OutputCollector collector;
+
     private boolean replayTuple;
+    private Map<String, List<String>> cachedPatterns;
     private long maxCachedPatterns;
     private long cacheInterval;
     private long cacheStartTime;
-    private Map<String, List<String>> cachedPatterns;
-
-    public UnmergedLogReducerBolt(long cacheIntervalSeconds, long maxCachedPatterns) {
-       this.maxCachedPatterns = maxCachedPatterns;
-       this.cacheInterval = cacheIntervalSeconds * 1000;
-    }
 
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
@@ -38,6 +38,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
         this.replayTuple = true;
         this.cachedPatterns = new HashMap<>();
         this.cacheStartTime = 0L;
+        parseConfig(map);
     }
 
     @Override
@@ -96,5 +97,20 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return null;
+    }
+
+    private void parseConfig(Map map) {
+        try {
+            this.cacheInterval = (long)Double.parseDouble(((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("leafPatternCacheSeconds").toString());
+        } catch (Exception e) {
+            this.cacheInterval = Constants.LEAF_PATTERN_CACHE_SECONDS_DEFAULT * 1000;
+            logger.error("get leafPatternCacheSeconds value from config file failed, use default value: " + this.cacheInterval / 1000 + "seconds.");
+        }
+        try {
+            this.maxCachedPatterns = (long) Double.parseDouble((((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("leafPatternCacheCount").toString()));
+        } catch (Exception e) {
+            this.maxCachedPatterns = Constants.LEAF_PATTERN_CACHE_MAX_DEFAULT;
+            logger.error("get leafPatternCacheCount value from config file failed, use default value: " + this.maxCachedPatterns);
+        }
     }
 }

@@ -13,11 +13,13 @@
   },
   "topics":{
     "normalLog": "normal-logs",
-    "unmergedLog": "pattern-tokens"
+    "unmergedLog": "pattern-tokens",
+    "metaupdated": "pattern-meta"
   },
   "parallelismCount":{
     "normal-logs-spout": 4,
     "pattern-tokens-spout": 4,
+    "pattern-meta-spout": 4,
 
     "PatternLeafFinderBolt": 20,
     "PatternLeafAppenderBolt": 10,
@@ -27,10 +29,15 @@
     "PatternRefinerBolt": 8
   },
   "patternreco":{
+    "leafSimilarityMin": 0.5,
+    "leafSimilarityMax": 0.9,
     "leafSimilarity": 0.9,
-    "leavesCountMax": 500,
     "decayFactor": 0.1,
     "bodyLengthMax": 5000,
-    "tokenCountMax": 200
+    "tokenCountMax": 200,
+    "leavesCountMax": 500,
+    "leafPatternCacheSeconds": 60,
+    "leafPatternCacheCount": 500,
+    "patternLevelMax": 10
   }
 }

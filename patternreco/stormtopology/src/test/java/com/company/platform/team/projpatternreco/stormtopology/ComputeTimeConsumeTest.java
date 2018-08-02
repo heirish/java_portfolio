@@ -1,10 +1,11 @@
-package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
+package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
 import edu.emory.mathcs.backport.java.util.Collections;
 import org.apache.log4j.Logger;
 
@@ -19,11 +20,11 @@ import java.util.*;
 //
 public class ComputeTimeConsumeTest {
     private static List<String> logs;
-    private static final String projectName = "nelo2-monitoring-alpha";
+    private static final String projectName = "monitoring";
     private static final double leafSimilarity = 0.9;
     private static final Logger logger =Logger.getLogger(ComputeTimeConsumeTest.class);
     private static int maxCount = -1;
-    private static Map<String, String> config = prepareConfigure();
+    private static Recognizer nodesUtilInstance = Recognizer.getInstance(prepareConfigure());
 
     public static void main(String[] args) {
         try {
@@ -42,8 +43,8 @@ public class ComputeTimeConsumeTest {
 
     private static Map<String, String> prepareConfigure() {
         Map<String, String> conf = new HashMap<>();
-        conf.put("host", "10.113.121.233");
-        conf.put("port", "11379");
+        conf.put("host", "");
+        conf.put("port", "");
         conf.put("maxTotal", "2000");
         conf.put("maxWaitMillis", "5000");
         return conf;
@@ -52,12 +53,12 @@ public class ComputeTimeConsumeTest {
     private static void preparePatternTree(List<String> logs) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            PatternLeaves.getInstance(config).addNode(new PatternLevelKey(projectName, 0),
+            nodesUtilInstance.addNode(new PatternLevelKey(projectName, 0),
                     new PatternNode(tokens));
         }
     }
 
-    private static void doFastClustering(List<String> logs) {
+    private static void doFastClustering(List<String> logs) throws Exception{
         long preprocessTime = 0;
         long finderTime = 0;
         for (int i=0; i< 100; i++) {
@@ -70,7 +71,7 @@ public class ComputeTimeConsumeTest {
                 PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
                 startTime = System.currentTimeMillis();
                 //PatternNodeKey nodeKey = PatternNodes.getInstance().getParentNodeId(tokens, levelKey, 1 - leafSimilarity);
-                PatternNodeKey nodeKey = PatternLeaves.getInstance(config).getParentNodeId(tokens, levelKey,
+                PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
                         1 - leafSimilarity, Constants.FINDCLUSTER_TOLERANCE_TIMES);
                 endTime = System.currentTimeMillis();
                 finderTime += endTime - startTime;
@@ -81,10 +82,10 @@ public class ComputeTimeConsumeTest {
         System.out.println("finderTime: " + finderTime);
     }
 
-    private static void doFastClusteringWithTokens(List<List<String>> logTokens) {
+    private static void doFastClusteringWithTokens(List<List<String>> logTokens) throws Exception{
         for (List<String> tokens : logTokens) {
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            PatternNodeKey nodeKey = PatternLeaves.getInstance(config).getParentNodeId(tokens, levelKey,1 - leafSimilarity,
+            PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,1 - leafSimilarity,
                     Constants.FINDCLUSTER_TOLERANCE_TIMES);
             //System.out.println(nodeKey.toString());
         }

@@ -15,7 +15,8 @@ import java.util.*;
  */
 public class RedisNodeCenter {
     private static final String REDIS_KEY_DELIMITER = ":";
-    private static final String REDIS_KEY_PREFIX = "nelo:pattern:";
+    private static final String REDIS_KEY_PATTERN_PREFIX = "nelo:pattern:";
+    private static final String REDIS_KEY_META_PREFIX = "nelo:meta:";
     private static final Logger logger = LoggerFactory.getLogger(RedisNodeCenter.class);
 
     private JedisPool jedisPool;
@@ -61,7 +62,7 @@ public class RedisNodeCenter {
             return nodes;
         }
 
-        String redisKey =  REDIS_KEY_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
         Jedis redis = jedisPool.getResource();
         try {
             result = redis.hgetAll(redisKey);
@@ -81,8 +82,8 @@ public class RedisNodeCenter {
 
         for (Map.Entry<String, String> entry : result.entrySet()) {
             try {
-                String redisNodeKey = entry.getKey().substring(REDIS_KEY_PREFIX.length());
-                if (!entry.getKey().startsWith(REDIS_KEY_PREFIX) || StringUtils.isEmpty(redisNodeKey)) {
+                String redisNodeKey = entry.getKey().substring(REDIS_KEY_PATTERN_PREFIX.length());
+                if (!entry.getKey().startsWith(REDIS_KEY_PATTERN_PREFIX) || StringUtils.isEmpty(redisNodeKey)) {
                     logger.warn("invalid redis nodeKey: " + entry.getKey());
                     continue;
                 }
@@ -103,8 +104,8 @@ public class RedisNodeCenter {
 
     public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
         PatternNodeKey nodeKey = new PatternNodeKey(levelKey);
-        String redisLevelKey = REDIS_KEY_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
         String redisNodeValue = node.toJson();
 
         Jedis redis = jedisPool.getResource();
@@ -118,10 +119,43 @@ public class RedisNodeCenter {
         return nodeKey;
     }
 
+    public PatternNode getNode(PatternNodeKey nodeKey) {
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+
+        Jedis redis = jedisPool.getResource();
+        String result = null;
+        try {
+            result = redis.hget(redisLevelKey, redisNodeKey);
+        } catch (Exception e) {
+            logger.error("Get NodeKey" + nodeKey.toString() + "'s value error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+
+        PatternNode node = null;
+        try {
+            if (result != null) {
+                node = PatternNode.fromJson(result);
+            }
+        } catch (Exception e) {
+            logger.error("parse node result error");
+        }
+
+        return node;
+    }
+
     public boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
-        String redisLevelKey = REDIS_KEY_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
         String redisNodeValue = node.toJson();
+
+        if (getNode(nodeKey) == null) {
+            logger.info("no node with key: " + redisNodeKey + "exists in redis, will not update it.");
+            return false;
+        }
 
         Jedis redis = jedisPool.getResource();
         if (redis.hset(redisLevelKey, redisNodeKey, redisNodeValue) == 1) {
@@ -158,8 +192,22 @@ public class RedisNodeCenter {
         return keySets;
     }
 
+    public void deleteLevelNodes(PatternLevelKey levelKey) {
+        String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        Jedis redis = jedisPool.getResource();
+        try {
+            redis.del(redisKey);
+        } catch (Exception e) {
+            logger.error("delete level " + levelKey.toString() + "'s values error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+    }
+
     public void deleteProjectNodes(String projectName) {
-        String keyPattern = REDIS_KEY_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
+        String keyPattern = REDIS_KEY_PATTERN_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
         Set<String> keySets = scanKeysByPattern(keyPattern);
 
         Jedis redis = jedisPool.getResource();
@@ -178,26 +226,11 @@ public class RedisNodeCenter {
         logger.info("delete " + keySets.size() + " keys for project " + projectName);
     }
 
-    public void setProjectSimilarity(String projectName, double similarity) {
-        Jedis redis = jedisPool.getResource();
-        try {
-            //set project Similarity
-            String redisKey = REDIS_KEY_PREFIX + "similarity:" + projectName;
-            redis.set(redisKey, String.valueOf(similarity));
-        } catch (Exception e) {
-            logger.error("set project similarity error.", e);
-        } finally {
-            if (redis != null) {
-                redis.close();
-            }
-        }
-    }
-
     private boolean existNode(PatternNodeKey nodeKey) {
         Jedis redis = jedisPool.getResource();
         try {
-            String redisLevelKey = REDIS_KEY_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-            String redisNodeKey = REDIS_KEY_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+            String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+            String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
             String redisNode = redis.hget(redisLevelKey, redisNodeKey);
             if (!StringUtils.isEmpty(redisNode)) {
                return true;
@@ -208,5 +241,34 @@ public class RedisNodeCenter {
             redis.close();
         }
         return false;
+    }
+
+    public void setMeta(String metaKey, String metaField, String metaValue) {
+        Jedis redis = jedisPool.getResource();
+        try {
+            String redisKey = REDIS_KEY_META_PREFIX + metaKey;
+            redis.hset(redisKey, metaField, metaValue);
+        } catch (Exception e) {
+            logger.error("set meta for key: " + metaKey + ", field: " +  metaField + "failed.");
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+    }
+
+    public String getMeta(String metaKey, String metaField) {
+        Jedis redis = jedisPool.getResource();
+        String result = null;
+        try {
+            result = redis.hget(metaKey, metaField);
+        } catch (Exception e) {
+            logger.error("get meta key: " + metaKey + ", field: " + metaField + "'s values error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+        return result;
     }
 }

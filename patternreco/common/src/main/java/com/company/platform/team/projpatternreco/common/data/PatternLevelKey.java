@@ -50,6 +50,17 @@ public final class PatternLevelKey {
         return this.projectName;
     }
 
+    public PatternLevelKey getChildLevelKey() {
+        if (level > 1) {
+            return new PatternLevelKey(projectName, level -1);
+        }
+        return null;
+    }
+
+    public PatternLevelKey getParentLevelKey() {
+        return new PatternLevelKey(projectName, level +1);
+    }
+
     public String toString() {
         return String.format("%s%s%s",
                 this.projectName, this.DELIMITER,

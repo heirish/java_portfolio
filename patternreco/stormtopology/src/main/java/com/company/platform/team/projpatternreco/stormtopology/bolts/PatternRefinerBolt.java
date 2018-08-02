@@ -1,12 +1,9 @@
-package com.company.platform.team.projpatternreco.stormtopology.refinder;
+package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
-import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeafSimilarity;
-import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.*;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.stormtopology.utils.PatternRecognizeException;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
-import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -16,13 +13,9 @@ import org.apache.storm.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Created by admin on 2018/7/12.
@@ -35,27 +28,21 @@ public class PatternRefinerBolt implements IRichBolt {
     private Map redisConfMap;
     private boolean replayTuple;
     private double leafSimilarity;
-    private double decayRefactor;
+    private double decayFactor;
 
     //@Test
     private long lastBackupTime;
     private long backupInterval;
 
-    public PatternRefinerBolt(double leafSimlarity, double decayRefacotr) {
-        this.leafSimilarity = leafSimlarity;
-        this.decayRefactor = decayRefacotr;
-    }
-
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         this.replayTuple = false; // for node not found, will never find it.
-        this.redisConfMap = new HashMap<String, Object>();
-        this.redisConfMap.putAll((Map)map.get("redis"));
 
         lastBackupTime = 0;
         backupInterval = 10 * 60 * 1000;
         //backupInterval = 6 * 1000;
+        parseConfig(map);
     }
 
     @Override
@@ -68,11 +55,15 @@ public class PatternRefinerBolt implements IRichBolt {
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
             //merge i-1, add i
-            for (int i = 1; i < 11; i++) {
-                double decayedSimilarity = 1-PatternLeafSimilarity.getInstance(-1)
-                        .getSimilarity(parentNodeKey.getProjectName())* Math.pow(1-decayRefactor, i);
+            Recognizer nodesUtilInstance = Recognizer.getInstance(redisConfMap);
+            PatternMetas metasInstance = PatternMetas.getInstance(redisConfMap);
+            String projectName = parentNodeKey.getProjectName();
+            int levelMax = metasInstance.getPatternLevelMax(projectName);
+            for (int i = 1; i < levelMax + 1; i++) {
+                double similarity = metasInstance.getLeafSimilarity(projectName);
+                double decayedSimilarity = 1 - similarity * Math.pow(1-decayFactor, i);
                 boolean isLastLevel = (i == 10) ? true : false;
-                Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance(redisConfMap)
+                Pair<PatternNodeKey, List<String>> nextLevelTuple = nodesUtilInstance
                         .mergePatternToNode(parentNodeKey, patternTokens, 1- decayedSimilarity, isLastLevel);
                 if (nextLevelTuple == null) {
                     break;
@@ -115,46 +106,22 @@ public class PatternRefinerBolt implements IRichBolt {
         return null;
     }
 
-    public void saveTreeToFile(String fileName, String projectName) {
-        try {
-            File file = new File(fileName);
-            if (!file.getParentFile().exists()) {
-                file.getParentFile().mkdirs();
-            }
-            FileWriter fw = new FileWriter(fileName);
-            if (StringUtils.isEmpty(projectName)) {
-                Set<String> projectNames = PatternNodes.getInstance(redisConfMap).getAllProjectsName();
-                for (String name : projectNames) {
-                    fw.write(PatternNodes.getInstance(redisConfMap).visualize(name));
-                }
-            } else {
-                fw.write(PatternNodes.getInstance(redisConfMap).visualize(projectName));
-            }
-            fw.close();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 
-    public void backupTree(String fileName, String projectName) {
+    private void parseConfig(Map map) {
         try {
-            File file = new File(fileName);
-            if (!file.getParentFile().exists()) {
-                file.getParentFile().mkdirs();
-            }
-
-            FileWriter fw = new FileWriter(fileName);
-            if (StringUtils.isEmpty(projectName)) {
-                Set<String> projectNames = PatternNodes.getInstance(redisConfMap).getAllProjectsName();
-                for (String name : projectNames) {
-                    fw.write(PatternNodes.getInstance(redisConfMap).toString(name));
-                }
-            } else {
-                fw.write(PatternNodes.getInstance(redisConfMap).toString(projectName));
-            }
-            fw.close();
-        } catch (IOException e) {
-            e.printStackTrace();
+            this.leafSimilarity = Double.parseDouble(((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("leafSimilarity").toString());
+        } catch (Exception e) {
+            this.leafSimilarity = Constants.PATTERN_LEAF_SIMILARITY_DEFAULT;
+            logger.error("get leafSimilarity value from config file failed, use default value: " + this.leafSimilarity);
         }
+        try {
+            this.decayFactor = Double.parseDouble(((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("decayFactor").toString());
+        } catch (Exception e) {
+            this.decayFactor= Constants.SIMILARITY_DECAY_FACTOR_DEFAULT;
+            logger.error("get decayFactor value from config file failed, use default value: " + this.decayFactor);
+        }
+
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get(Constants.CONFIGURE_REDIS_SECTION));
     }
 }

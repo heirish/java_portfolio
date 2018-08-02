@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology.refinder;
+package com.company.platform.team.projpatternreco.stormtopology.utils;
 
 import com.company.platform.team.projpatternreco.common.utils.ListUtil;
 import com.company.platform.team.projpatternreco.common.modules.NeedlemanWunschAligner;

@@ -1,10 +1,11 @@
-package com.company.platform.team.projpatternreco.stormtopology.leaffinder;
+package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
 import edu.emory.mathcs.backport.java.util.Collections;
 import org.apache.commons.cli.*;
 
@@ -27,18 +28,18 @@ import org.apache.log4j.Logger;
 public class ComputeCPULoadTest {
     private static List<String> logs;
     private static List<List<String>> logTokens;
-    private static final String projectName = "nelo2-monitoring-alpha";
+    private static final String projectName = "monitoring";
     private static final double leafSimilarity = 0.9;
     private static final Logger logger =Logger.getLogger(ComputeCPULoadTest.class);
     private static int maxCount = 10;
-    private static Map<String, String> config = prepareConfigure();
+    private static Recognizer nodesUtilInstance = Recognizer.getInstance(prepareConfigure());
 
     public static void main(String[] args) {
         try {
             logger.info("test started....");
             parseArgs(args);
             logs = readLogsFromFile("./logs.txt");
-            preparePatternTree(logs, PatternLeaves.getInstance(config));
+            preparePatternTree(logs);
 
             logTokens = new ArrayList<>();
             for (String log : logs) {
@@ -54,7 +55,7 @@ public class ComputeCPULoadTest {
 
             long endTime = System.currentTimeMillis() + 5 * 1000;
             for (int i = 0; i < workersCount; i++) {
-                createAndStartWorker(barrier, endTime, PatternLeaves.getInstance(config)); //use barrier to start all workers at the same time as main thread
+                createAndStartWorker(barrier, endTime); //use barrier to start all workers at the same time as main thread
             }
             barrier.await();
             System.out.println("All workers and main thread started");
@@ -70,49 +71,49 @@ public class ComputeCPULoadTest {
 
     private static Map<String, String> prepareConfigure() {
         Map<String, String> conf = new HashMap<>();
-        conf.put("host", "10.113.121.233");
-        conf.put("port", "11379");
+        conf.put("host", "");
+        conf.put("port", "");
         conf.put("maxTotal", "2000");
         conf.put("maxWaitMillis", "5000");
         return conf;
     }
 
-    private static void preparePatternTree(List<String> logs, PatternLeaves leaves) {
+    private static void preparePatternTree(List<String> logs) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            leaves.addNode(new PatternLevelKey(projectName, 0),
+            nodesUtilInstance.addNode(new PatternLevelKey(projectName, 0),
                     new PatternNode(tokens));
         }
     }
 
-    private static void doFastClustering(List<String> logs, PatternLeaves leaves) {
+    private static void doFastClustering(List<String> logs) throws Exception{
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
             //System.out.println(Arrays.toString(tokens.toArray()));
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            PatternNodeKey nodeKey = leaves.getParentNodeId(tokens, levelKey, 1 - leafSimilarity,
+            PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey, 1 - leafSimilarity,
                     Constants.FINDCLUSTER_TOLERANCE_TIMES);
             //System.out.println(nodeKey.toString());
         }
     }
 
-    private static void doFastClusteringWithTokens(List<List<String>> logTokens, PatternLeaves nodes) {
+    private static void doFastClusteringWithTokens(List<List<String>> logTokens) throws Exception{
         for (List<String> tokens : logTokens) {
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            PatternNodeKey nodeKey = nodes.getParentNodeId(tokens, levelKey, 1 - leafSimilarity,
+            PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey, 1 - leafSimilarity,
                     Constants.FINDCLUSTER_TOLERANCE_TIMES);
             //System.out.println(nodeKey.toString());
         }
     }
 
-    private static void createAndStartWorker(CyclicBarrier cyclicBarrier, long endTime, PatternLeaves leaves) {
+    private static void createAndStartWorker(CyclicBarrier cyclicBarrier, long endTime) {
         new Thread(() -> {
             try {
                 cyclicBarrier.await();
                 int i=0;
                 while (System.currentTimeMillis() < endTime) {
                     // Thread 100% time as RUNNABLE, taking 1/(n cores) of JVM/System overall CPU
-                    doFastClustering(logs, leaves);
+                    doFastClustering(logs);
                     //doFastClusteringWithTokens(logTokens);
                     i++;
                 }
