@@ -55,9 +55,10 @@ public class PatternLeafFinderBolt implements IRichBolt {
                 List<String> tokens = preprocess(body,
                                                  metaInstance.getBodyLengthMax(projectName),
                                                  metaInstance.getTokensCountMax(projectName));
-                double similarity = metaInstance.getLeafSimilarity(projectName);
                 PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
-                        1 - similarity, Constants.FINDCLUSTER_TOLERANCE_TIMES);
+                        metaInstance.getSimilarityDecayFactor(projectName),
+                        metaInstance.getLeafSimilarityMax(projectName),
+                        metaInstance.getFindTolerance(projectName));
 
                 String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, tokens);
                 if (nodeKey == null) { // to leafaddbolt

@@ -22,14 +22,6 @@ public class Constants {
     //patternreco
     public static final String CONFIGURE_PATTERNRECO_SECTION = "patternreco";
     public static final String CONFIGURE_REDIS_SECTION = "patternreco";
-    public static final double PATTERN_LEAF_SIMILARITY_DEFAULT = 0.9;
-    public static final double PATTERN_LEAF_SIMILARITY_MIN = 0.1;
-    public static final double PATTERN_LEAF_SIMILARITY_MAX = 0.9;
-    public static final double SIMILARITY_DECAY_FACTOR_DEFAULT = 0.1;
-    public static final int PATTERN_LEAF_COUNT_MAX_DEFAULT = 500;
-    public static final int FINDCLUSTER_TOLERANCE_TIMES = 4;
-    public static final int BODY_LENGTH_MAX_DEFAULT = 5000;
-    public static final int TOKEN_COUNT_MAX_DEFAULT = 200;
     public static final long LEAF_PATTERN_CACHE_SECONDS_DEFAULT = 60;
     public static final long LEAF_PATTERN_CACHE_MAX_DEFAULT = 500;
     public static final int PATTERN_LEVEL_MAX_DEFAULT = 10;

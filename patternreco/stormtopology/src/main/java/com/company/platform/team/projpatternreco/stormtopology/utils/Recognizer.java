@@ -12,6 +12,8 @@ import java.security.InvalidParameterException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by admin on 2018/8/2.
@@ -21,7 +23,7 @@ import java.util.Set;
 public class Recognizer {
     private static final Logger logger = LoggerFactory.getLogger(Recognizer.class);
     private static final PatternNodes localPatternNodes = new PatternNodes();
-    private static final PatternMetas localMetas = new PatternMetas();
+    private static ConcurrentHashMap<String, Pair<String, Double>> projectSimilarities;
     private static RedisNodeCenter nodeCenter = null;
 
     private static Recognizer instance = null;
@@ -42,22 +44,11 @@ public class Recognizer {
         }
     }
 
-    public double getLeafSimilarityMin(String projectName) {
-        double similarity;
-        try {
-        String leafSimilarity = nodeCenter.getMeta(projectName, PatternMetaType.LEAF_SIMILARITY_MIN.toString());
-            similarity = Double.parseDouble(leafSimilarity);
-        } catch (Exception e) {
-            similarity = Constants.PATTERN_LEAF_SIMILARITY_MIN;
-            logger.info("project " + projectName + " has no or invalid leaf similarity min meta data, will use default: " + similarity);
-        }
-        return similarity;
-    }
-
     public PatternNodeKey getParentNodeId(List<String> tokens,
-                                                 PatternLevelKey levelKey,
-                                                 double maxDistance,
-                                                 int retryTolerence) throws InvalidParameterException {
+                                          PatternLevelKey levelKey,
+                                          double similarityDecayFactor,
+                                          double leafSimilarityMax,
+                                          int retryTolerence) throws InvalidParameterException {
         if (tokens == null || levelKey == null) {
             logger.error("invalid parameters. tokens or levelKey is null.");
             throw new InvalidParameterException("invalid parameters, tokens or levelKey is null.");
@@ -67,7 +58,8 @@ public class Recognizer {
             return null;
         }
 
-        PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, maxDistance);
+        double similarity = getSimilarity(levelKey, similarityDecayFactor, leafSimilarityMax);
+        PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, 1-similarity);
         if (nodeKey != null) {
             return nodeKey;
         }
@@ -79,7 +71,7 @@ public class Recognizer {
                 triedTimes++;
                 continue;
             }
-            nodeKey = findNodeIdFromNodes(tokens, newlevelNodes, maxDistance);
+            nodeKey = findNodeIdFromNodes(tokens, newlevelNodes, 1-similarity);
             if (nodeKey != null) {
                 return nodeKey;
             }
@@ -88,6 +80,39 @@ public class Recognizer {
 
         logger.debug("Already retried " + retryTolerence + " times, still can't find parent id for given tokens.");
         return null;
+    }
+
+    private double getSimilarity(PatternLevelKey levelKey, double decayFactor, double leafSimilarityMax) {
+        double leafSimilarity = getLeafSimilarity(levelKey.getProjectName(), leafSimilarityMax);
+        return leafSimilarity * Math.pow(1-decayFactor, levelKey.getLevel());
+    }
+
+    private double getLeafSimilarity(String projectName, Double defaultValue) {
+        double leafSimilarity;
+        try {
+            //TODO:get from redis and compare the finger print
+            leafSimilarity = projectSimilarities.get(projectName).getRight();
+        } catch (Exception e) {
+            leafSimilarity = defaultValue;
+            logger.warn("get current similarity failed. will use default simiarity: " + leafSimilarity);
+        }
+        return leafSimilarity;
+    }
+
+    public void stepUpLeafSimilarity(String projectName, double highSimilarity) {
+        double oldSimilarity = getLeafSimilarity(projectName, highSimilarity);
+        double newSimilarity =  (oldSimilarity + highSimilarity) /2;
+        String fingerPrint = UUID.randomUUID().toString();
+        projectSimilarities.put(projectName, Pair.of(fingerPrint, newSimilarity));
+        //TODO: send to redis
+    }
+
+    public void stepDownLeafSimilarity(String projectName, double lowSimilarity) {
+        double oldSimilarity = getLeafSimilarity(projectName, lowSimilarity);
+        double newSimilarity =  (oldSimilarity + lowSimilarity) /2;
+        String fingerPrint = UUID.randomUUID().toString();
+        projectSimilarities.put(projectName, Pair.of(fingerPrint, newSimilarity));
+        //TODO: send to redis
     }
 
     public boolean exceedLeafLimit(String projectName, int limit) {
@@ -108,7 +133,8 @@ public class Recognizer {
 
     public Pair<PatternNodeKey, List<String>> mergePatternToNode(PatternNodeKey key,
                                                                  List<String> patternTokens,
-                                                                 double maxDist,
+                                                                 double similarityDecayFactor,
+                                                                 double similarityMax,
                                                                  boolean isLastLevel)
             throws PatternRecognizeException, InvalidParameterException{
         if (key == null || patternTokens == null) {
@@ -131,7 +157,8 @@ public class Recognizer {
                 logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
             }
             if (!parentNode.hasParent() && !isLastLevel) {
-                PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, maxDist, 1);
+                PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, similarityDecayFactor,
+                        similarityMax, 1);
                 if (grandNodeKey == null) {
                     grandNodeKey = addNode(levelKey, new PatternNode(mergedTokens));
                     if (grandNodeKey != null) {

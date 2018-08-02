@@ -12,13 +12,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public class PatternMetas {
     private static Logger logger = LoggerFactory.getLogger(PatternMetas.class);
 
+    public static final double LEAF_SIMILARITY_MIN_DEFAULT = 0.1;
+    public static final double LEAF_SIMILARITY_MAX_DEFAULT = 0.9;
+    public static final double SIMILARITY_DECAY_FACTOR_DEFAULT = 0.1;
+    public static final int LEAF_COUNT_MAX_DEFAULT = 500;
+    public static final int FINDCLUSTER_TOLERANCE_TIMES = 4;
+    public static final int BODY_LENGTH_MAX_DEFAULT = 5000;
+    public static final int TOKEN_COUNT_MAX_DEFAULT = 200;
+    public static final int PATTERN_LEVEL_MAX_DEFAULT = 10;
+
     private ConcurrentHashMap<String, String> projectMetas;
-    private RedisNodeCenter nodeCenter;
 
     private static PatternMetas instance;
 
     private PatternMetas(Map conf) {
-        nodeCenter = RedisNodeCenter.getInstance(conf);
+        //TODO: load meta from somewhere
     }
 
     public static synchronized PatternMetas getInstance(Map conf) {
@@ -28,71 +36,70 @@ public class PatternMetas {
         return instance;
     }
 
-    public double getLeafSimilarity(String projectName) {
-        double similarity;
+    public double getLeafSimilarityMin(String projectName) {
+        double similarityMin;
         try {
-            String leafSimilarity = nodeCenter.getMeta(projectName, PatternMetaType.LEAF_SIMILARITY.toString());
-            similarity = Double.parseDouble(leafSimilarity);
+            String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_SIMILARITY_MIN);
+            similarityMin = Double.parseDouble(projectMetas.get(metaKey));
         } catch (Exception e) {
-            similarity = Constants.PATTERN_LEAF_SIMILARITY_DEFAULT;
-            logger.info("project " + projectName + " has no or invalid leaf similarity meta data, will use default: " + similarity);
+            similarityMin = LEAF_SIMILARITY_MIN_DEFAULT;
+            logger.warn("get similarity min for project: " + projectName
+                    + "failed, use default value: " + similarityMin);
         }
-        return similarity;
-    }
-
-    public void setLeafSimilarity(String projectName, double similarity) {
-        nodeCenter.setMeta(projectName, PatternMetaType.LEAF_SIMILARITY.toString(), String.valueOf(similarity));
-        //TODO: redis publisher
+        return similarityMin;
     }
 
     public double getLeafSimilarityMax(String projectName) {
-        double similarity;
+        double similarityMax;
         try {
-            String leafSimilarity = nodeCenter.getMeta(projectName, PatternMetaType.LEAF_SIMILARITY_MAX.toString());
-            similarity = Double.parseDouble(leafSimilarity);
+            String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_SIMILARITY_MAX);
+            similarityMax = Double.parseDouble(projectMetas.get(metaKey));
         } catch (Exception e) {
-            similarity = Constants.PATTERN_LEAF_SIMILARITY_MAX;
-            logger.info("project " + projectName + " has no or invalid leaf similarity max meta data, will use default: " + similarity);
+            similarityMax = LEAF_SIMILARITY_MAX_DEFAULT;
+            logger.warn("get similarity max for project: " + projectName
+                    + "failed, use default value: " + similarityMax);
         }
-        return similarity;
+        return similarityMax;
+
     }
 
-    public double getLeafSimilarityMin(String projectName) {
-        double similarity;
+    public double getSimilarityDecayFactor(String projectName) {
+        double decayFactor;
         try {
-            String leafSimilarity = nodeCenter.getMeta(projectName, PatternMetaType.LEAF_SIMILARITY_MIN.toString());
-            similarity = Double.parseDouble(leafSimilarity);
+            String metaKey = getMetaKey(projectName, PatternMetaType.DECAY_FACTOR);
+            decayFactor = Double.parseDouble(projectMetas.get(metaKey));
         } catch (Exception e) {
-            similarity = Constants.PATTERN_LEAF_SIMILARITY_MIN;
-            logger.info("project " + projectName + " has no or invalid leaf similarity min meta data, will use default: " + similarity);
+            decayFactor = SIMILARITY_DECAY_FACTOR_DEFAULT;
+            logger.warn("get similarity decay factor for project: " + projectName
+                    + "failed, use default value: " + decayFactor);
         }
-        return similarity;
+        return decayFactor;
+
     }
 
-    public double stepUpLeafSimilarity(String projectName) {
-        double oldSimilarity = getLeafSimilarity(projectName);
-        double similarityMax = getLeafSimilarityMax(projectName);
-        double newSimilarity = (oldSimilarity + similarityMax) / 2;
-        setLeafSimilarity(projectName, newSimilarity);
-        return newSimilarity;
-    }
+    public int getFindTolerance(String projectName) {
+        int findTolerance;
+        try {
+            String metaKey = getMetaKey(projectName, PatternMetaType.FIND_TOLERANCE);
+            findTolerance = Integer.parseInt(projectMetas.get(metaKey));
+        } catch (Exception e) {
+            findTolerance = FINDCLUSTER_TOLERANCE_TIMES;
+            logger.warn("get find cluster tolerance for project: " + projectName
+                    + "failed, use default value: " + findTolerance);
+        }
+        return findTolerance;
 
-    public double stepDownLeafSimilarity(String projectName) {
-        double oldSimilarity = getLeafSimilarity(projectName);
-        double similarityMin = getLeafSimilarityMin(projectName);
-        double newSimilarity = (oldSimilarity + similarityMin) / 2;
-        setLeafSimilarity(projectName, newSimilarity);
-        return newSimilarity;
     }
 
     public int getLeafNodesLimit(String projectName) {
         int limit;
         try {
-            String leafCountLimit = nodeCenter.getMeta(projectName, PatternMetaType.LEAF_NODES_LIMIT.toString());
-            limit = Integer.parseInt(leafCountLimit);
+            String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_NODES_LIMIT);
+            limit = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
-            limit = Constants.PATTERN_LEAF_COUNT_MAX_DEFAULT;
-            logger.info("project " + projectName + " has no or invalid leaf Nodes limit meta data, will use default: " + limit);
+            limit = LEAF_COUNT_MAX_DEFAULT;
+            logger.warn("get leaf nodes limit for project: " + projectName
+                    + "failed, use default: " + limit);
         }
         return limit;
     }
@@ -100,11 +107,12 @@ public class PatternMetas {
     public int getPatternLevelMax(String projectName) {
         int levelMax;
         try {
-            String patternLevelMax = nodeCenter.getMeta(projectName, PatternMetaType.PATTERN_LEVEL_MAX.toString());
-            levelMax = Integer.parseInt(patternLevelMax);
+            String metaKey = getMetaKey(projectName, PatternMetaType.PATTERN_LEVEL_MAX);
+            levelMax = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
-            levelMax = Constants.PATTERN_LEVEL_MAX_DEFAULT;
-            logger.info("project " + projectName + " has no or invalid pattern level max meta data, will use default: " + levelMax);
+            levelMax = PATTERN_LEVEL_MAX_DEFAULT;
+            logger.warn("get pattern level limit for project: " + projectName
+                    + "failed, use default: " + levelMax);
         }
         return levelMax;
     }
@@ -112,11 +120,12 @@ public class PatternMetas {
     public int getBodyLengthMax(String projectName) {
         int bodyLengthMax;
         try {
-            String result = nodeCenter.getMeta(projectName, PatternMetaType.BODY_LENGTH_MAX.toString());
-            bodyLengthMax = Integer.parseInt(result);
+            String metaKey = getMetaKey(projectName, PatternMetaType.BODY_LENGTH_MAX);
+            bodyLengthMax = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
-            bodyLengthMax = Constants.BODY_LENGTH_MAX_DEFAULT;
-            logger.info("project " + projectName + " has no or invalid body length max meta data, will use default: " + bodyLengthMax);
+            bodyLengthMax = BODY_LENGTH_MAX_DEFAULT;
+            logger.warn("get body length limit for project: " + projectName
+                    + "failed, use default: " + bodyLengthMax);
         }
         return bodyLengthMax;
     }
@@ -124,12 +133,19 @@ public class PatternMetas {
     public int getTokensCountMax(String projectName) {
         int tokensCountMax;
         try {
-            String result = nodeCenter.getMeta(projectName, PatternMetaType.TOKEN_COUNT_MAX.toString());
-            tokensCountMax = Integer.parseInt(result);
+            String metaKey = getMetaKey(projectName, PatternMetaType.BODY_LENGTH_MAX);
+            tokensCountMax = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
-            tokensCountMax = Constants.TOKEN_COUNT_MAX_DEFAULT;
-            logger.info("project " + projectName + " has no or invalid tokens count max meta data, will use default: " + tokensCountMax);
+            tokensCountMax = TOKEN_COUNT_MAX_DEFAULT;
+            logger.warn("get token count limit for project: " + projectName
+                    + "failed, use default: " + tokensCountMax);
         }
         return tokensCountMax;
+    }
+
+    private String getMetaKey(String projectName, PatternMetaType type) {
+        String metaKey = String.format("%s%s%s",
+                projectName, ":", type.getTypeString());
+        return metaKey;
     }
 }

@@ -96,10 +96,14 @@ public class PatternLeafAppenderBolt implements IRichBolt {
 
         int leafLimit = metaInstance.getLeafNodesLimit(levelKey.getProjectName());
         if (nodesUtilInstance.exceedLeafLimit(levelKey.getProjectName(),leafLimit)) {
-            double newSimilarity = metaInstance.stepUpLeafSimilarity(levelKey.getProjectName());
+            String projectName = levelKey.getProjectName();
+            double similarityMax = metaInstance.getLeafSimilarityMax(projectName);
+            nodesUtilInstance.stepUpLeafSimilarity(projectName, similarityMax);
             nodesUtilInstance.deleteLevelNodes(levelKey);
 
-            nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey, 1 - newSimilarity, 1);
+            nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
+                    metaInstance.getSimilarityDecayFactor(projectName),
+                    similarityMax, 1);
         }
 
         if (nodeKey == null) {
