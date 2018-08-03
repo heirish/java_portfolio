@@ -20,7 +20,7 @@ public class Constants {
 
     //patternreco
     public static final String CONFIGURE_PATTERNRECO_SECTION = "patternreco";
-    public static final String CONFIGURE_REDIS_SECTION = "patternreco";
+    public static final String CONFIGURE_REDIS_SECTION = "redis";
     public static final long LEAF_PATTERN_CACHE_SECONDS_DEFAULT = 60;
     public static final long LEAF_PATTERN_CACHE_MAX_DEFAULT = 500;
     public static final int PATTERN_LEVEL_MAX_DEFAULT = 10;
