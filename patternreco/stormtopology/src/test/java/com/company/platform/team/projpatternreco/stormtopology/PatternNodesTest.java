@@ -1,10 +1,11 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
+import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.stormtopology.leaffinder.PatternLeaves;
-import com.company.platform.team.projpatternreco.stormtopology.refinder.PatternNodes;
-import org.apache.commons.lang3.ArrayUtils;
+import com.company.platform.team.projpatternreco.stormtopology.utils.PatternNodes;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
@@ -12,7 +13,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by Administrator on 2018/7/15 0015.
@@ -24,16 +27,16 @@ public class PatternNodesTest {
             String nodeKeyString = "test#@#0#@#17fda459602e42b49c6061c90f7a0b09";
             PatternNodeKey nodeKey = PatternNodeKey.fromString(nodeKeyString);
             List<String> tokens = Arrays.asList("this is a test".split(" "));
-            PatternLeaves.getInstance().addNode(nodeKey,
+            RedisNodeCenter.getInstance(config).updateNode(nodeKey,
                     new PatternNode(tokens));
             for (int i=0; i< 1; i++) {
                 nodeKey = PatternNodeKey.fromString(nodeKeyString + i);
-                PatternLeaves.getInstance().addNode(nodeKey,
+                RedisNodeCenter.getInstance(config).updateNode(nodeKey,
                         new PatternNode(tokens));
             }
             nodeKey = PatternNodeKey.fromString("test#@#0#@#17fda459602e42b49c6061c90f7a0b090");
-            PatternNode node = PatternNodes.getInstance().getNode(nodeKey);
-            System.out.println(node.toString());
+            //PatternNode node = Recognizer.getInstance(config).getNode(nodeKey);
+            //System.out.println(node.toString());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -43,31 +46,27 @@ public class PatternNodesTest {
     public void addNewPatternTest() {
         double leafSimilarity = 0.9;
         double decayRefactor = 0.9;
-        PatternNodeKey parentNodeKey = new PatternNodeKey("test", 0);
+        PatternLevelKey levelKey= new PatternLevelKey("test", 0);
         List<String> parentTokens = Arrays.asList("that is a test".split(" "));
         List<String> patternTokens = Arrays.asList("this is a test".split(" "));
 
 
-        PatternLeaves.getInstance().addNode(parentNodeKey,
+        PatternNodeKey parentNodeKey = Recognizer.getInstance(config).addNode(levelKey,
                 new PatternNode(parentTokens));
 
         try {
-            for (int i = 1; i < 11; i++) {
-                double maxDist = 1 - leafSimilarity * Math.pow(decayRefactor, i);
-                boolean isLastLevel = (i==10) ? true : false;
-                Pair<PatternNodeKey, List<String>> nextLevelTuple = PatternNodes.getInstance()
-                            .mergePatternToNode(parentNodeKey, patternTokens, maxDist, isLastLevel);
-                if (nextLevelTuple == null) {
-                    break;
-                }
-                parentNodeKey = nextLevelTuple.getLeft();
-                patternTokens = nextLevelTuple.getRight();
-                System.out.println(parentNodeKey.toString());
-                System.out.println(Arrays.toString(patternTokens.toArray()));
-            }
+            Recognizer.getInstance(config).mergeTokenToNode(parentNodeKey, patternTokens);
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Test
+    public void addRedisNodeTest(){
+        PatternLevelKey levelKey = new PatternLevelKey("test", 0);
+        List<String> patternTokens = Arrays.asList("this is a test".split(" "));
+        PatternNodeKey nodeKey =  RedisNodeCenter.getInstance(config).addNode(levelKey, new PatternNode(patternTokens));
+        System.out.println(nodeKey.toString());
     }
 
     @Test

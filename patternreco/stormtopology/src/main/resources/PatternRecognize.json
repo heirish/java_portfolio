@@ -21,6 +21,8 @@
     "pattern-tokens-spout": 4,
     "pattern-meta-spout": 4,
 
+    "MetaUpdatedBolt":4,
+
     "PatternLeafFinderBolt": 20,
     "PatternLeafAppenderBolt": 10,
     "LogIndexBolt":10,

@@ -6,6 +6,7 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.junit.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -15,10 +16,28 @@ public class UsageTest {
 
     @Test
     public void mapDifferenceTest() {
-        Map<PatternNodeKey, PatternNode> newLevelNodes = null;
-        Map<PatternNodeKey, PatternNode> levelNodes = null;
-        MapDifference<PatternNodeKey, PatternNode> diff = Maps.difference(levelNodes, newLevelNodes);
+        Map<String, String> oldMap = null;
+        Map<String, String> newMap= null;
+        MapDifference<String, String> diff;
+        //diff = Maps.difference(oldMap, newMap);
         System.out.println("test");
+
+        oldMap = new HashMap<>();
+        newMap = new HashMap<>();
+
+        oldMap.put("aa", "123123");
+        oldMap.put("bb", "111");
+        oldMap.put("cc", "2222");
+
+        newMap.put("bb", "333");
+        newMap.put("cc", "2222");
+        newMap.put("dd", "4444");
+
+        diff = Maps.difference(oldMap, newMap);
+        System.out.println(diff.entriesOnlyOnLeft().keySet().toString());
+        System.out.println(diff.entriesOnlyOnRight().keySet().toString());
+        System.out.println(diff.entriesDiffering().keySet().toString());
+        System.out.println(diff.entriesInCommon().keySet().toString());
     }
 
     @Test

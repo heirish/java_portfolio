@@ -1,10 +1,9 @@
 package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
-import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
-import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.stormtopology.utils.*;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -43,11 +42,21 @@ public class PatternLeafAppenderBolt implements IRichBolt {
                 String log= tuple.getString(1);
                 Map<String, String> logMap = gson.fromJson(log, Map.class);
                 String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
-                PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
                 String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
                 List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
 
-                PatternNodeKey nodeKey = addNewLeaf(levelKey, tokens);
+                Recognizer recognizer = Recognizer.getInstance(redisConfMap);
+                Pair<PatternNodeKey, Boolean> result = recognizer.addLeafNode(projectName, tokens);
+
+                boolean similarityChanged = result.getRight();
+                if (similarityChanged) {
+                    Map<String, String> valueMap = new HashMap<>();
+                    valueMap.put(Constants.FIELD_PROJECTNAME, projectName);
+                    valueMap.put(Constants.FIELD_META_TYPE, "similarity");
+                    collector.emit(Constants.PATTERN_META_STREAMID, new Values(gson.toJson(valueMap)));
+                }
+
+                PatternNodeKey nodeKey = result.getLeft();
                 if (nodeKey == null) {
                     logMap.put(Constants.FIELD_LEAFID, "");
                 } else  {
@@ -87,29 +96,5 @@ public class PatternLeafAppenderBolt implements IRichBolt {
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return null;
-    }
-
-    private PatternNodeKey addNewLeaf(PatternLevelKey levelKey, List<String> tokens) throws PatternRecognizeException{
-        Recognizer nodesUtilInstance = Recognizer.getInstance(redisConfMap);
-        PatternMetas metaInstance = PatternMetas.getInstance(redisConfMap);
-        PatternNodeKey nodeKey = null;
-
-        int leafLimit = metaInstance.getLeafNodesLimit(levelKey.getProjectName());
-        if (nodesUtilInstance.exceedLeafLimit(levelKey.getProjectName(),leafLimit)) {
-            String projectName = levelKey.getProjectName();
-            double similarityMax = metaInstance.getLeafSimilarityMax(projectName);
-            nodesUtilInstance.stepUpLeafSimilarity(projectName, similarityMax);
-            nodesUtilInstance.deleteLevelNodes(levelKey);
-
-            nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
-                    metaInstance.getSimilarityDecayFactor(projectName),
-                    similarityMax, 1);
-        }
-
-        if (nodeKey == null) {
-            PatternNode node = new PatternNode(tokens);
-            nodeKey = nodesUtilInstance.addNode(levelKey, node);
-        }
-        return nodeKey;
     }
 }

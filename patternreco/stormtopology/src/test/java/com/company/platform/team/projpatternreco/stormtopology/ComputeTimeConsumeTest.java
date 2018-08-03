@@ -24,7 +24,7 @@ public class ComputeTimeConsumeTest {
     private static final double leafSimilarity = 0.9;
     private static final Logger logger =Logger.getLogger(ComputeTimeConsumeTest.class);
     private static int maxCount = -1;
-    private static Recognizer nodesUtilInstance = Recognizer.getInstance(prepareConfigure());
+    private static Recognizer recognizer = Recognizer.getInstance(prepareConfigure());
 
     public static void main(String[] args) {
         try {
@@ -53,7 +53,7 @@ public class ComputeTimeConsumeTest {
     private static void preparePatternTree(List<String> logs) {
         for (String log : logs) {
             List<String> tokens = Preprocessor.transform(log);
-            nodesUtilInstance.addNode(new PatternLevelKey(projectName, 0),
+            recognizer.addNode(new PatternLevelKey(projectName, 0),
                     new PatternNode(tokens));
         }
     }
@@ -71,8 +71,7 @@ public class ComputeTimeConsumeTest {
                 PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
                 startTime = System.currentTimeMillis();
                 //PatternNodeKey nodeKey = PatternNodes.getInstance().getParentNodeId(tokens, levelKey, 1 - leafSimilarity);
-                PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
-                        1 - leafSimilarity, Constants.FINDCLUSTER_TOLERANCE_TIMES);
+                recognizer.getLeafNodeId(projectName, log);
                 endTime = System.currentTimeMillis();
                 finderTime += endTime - startTime;
                 //System.out.println(nodeKey.toString());
@@ -85,8 +84,7 @@ public class ComputeTimeConsumeTest {
     private static void doFastClusteringWithTokens(List<List<String>> logTokens) throws Exception{
         for (List<String> tokens : logTokens) {
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-            PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,1 - leafSimilarity,
-                    Constants.FINDCLUSTER_TOLERANCE_TIMES);
+            PatternNodeKey nodeKey = recognizer.getParentNodeId(levelKey, tokens);
             //System.out.println(nodeKey.toString());
         }
     }

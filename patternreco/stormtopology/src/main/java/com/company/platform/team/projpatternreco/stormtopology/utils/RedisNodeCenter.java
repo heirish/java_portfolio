@@ -15,8 +15,8 @@ import java.util.*;
  */
 public class RedisNodeCenter {
     private static final String REDIS_KEY_DELIMITER = ":";
-    private static final String REDIS_KEY_PATTERN_PREFIX = "nelo:pattern:";
-    private static final String REDIS_KEY_META_PREFIX = "nelo:meta:";
+    private static final String REDIS_KEY_PATTERN_PREFIX = "nelo:pattern:nodes";
+    private static final String REDIS_KEY_SIMILARITY_PREFIX = "nelo:pattern:similarity";
     private static final Logger logger = LoggerFactory.getLogger(RedisNodeCenter.class);
 
     private JedisPool jedisPool;
@@ -168,7 +168,56 @@ public class RedisNodeCenter {
         return true;
     }
 
-    public Set<String> scanKeysByPattern(String pattern) {
+
+    public void deleteLevelNodes(PatternLevelKey levelKey) {
+        String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        deleteHashKey(redisKey);
+    }
+
+    public void deleteProjectNodes(String projectName) {
+        String keyPattern = REDIS_KEY_PATTERN_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
+        Set<String> keySets = scanKeysByPattern(keyPattern);
+
+        Jedis redis = jedisPool.getResource();
+        try {
+            //delete old pattern Nodes
+            for (String key: keySets) {
+                redis.del(key);
+            }
+        } catch (Exception e) {
+            logger.error("delete project nodes error.", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+        logger.info("delete " + keySets.size() + " keys for project " + projectName);
+    }
+
+    public String getLeafSimilarity(String projectName) {
+        String key = REDIS_KEY_SIMILARITY_PREFIX + projectName;
+
+        Jedis redis = jedisPool.getResource();
+        try {
+            return redis.get(key);
+        } catch (Exception e) {
+            logger.error("get key: " + key + "'s value error", e);
+        }
+        return null;
+    }
+
+    public void setLeafSimilarity(String projectName, String value) {
+        String key = REDIS_KEY_SIMILARITY_PREFIX + projectName;
+
+        Jedis redis = jedisPool.getResource();
+        try {
+            redis.set(key, value);
+        } catch (Exception e) {
+            logger.error("set key: " + key + "'s value error", e);
+        }
+    }
+
+    private Set<String> scanKeysByPattern(String pattern) {
         ScanParams scanParams = new ScanParams();
         scanParams.match(pattern);
         scanParams.count(5000);
@@ -192,64 +241,19 @@ public class RedisNodeCenter {
         return keySets;
     }
 
-    public void deleteLevelNodes(PatternLevelKey levelKey) {
-        String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
-        Jedis redis = jedisPool.getResource();
-        try {
-            redis.del(redisKey);
-        } catch (Exception e) {
-            logger.error("delete level " + levelKey.toString() + "'s values error", e);
-        } finally {
-            if (redis != null) {
-                redis.close();
-            }
-        }
-    }
-
-    public void deleteProjectNodes(String projectName) {
-        String keyPattern = REDIS_KEY_PATTERN_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
-        Set<String> keySets = scanKeysByPattern(keyPattern);
-
-        Jedis redis = jedisPool.getResource();
-        try {
-            //delete old pattern Nodes
-            for (String key: keySets) {
-                redis.del(key);
-            }
-        } catch (Exception e) {
-            logger.error("delete project nodes error.", e);
-        } finally {
-            if (redis != null) {
-                redis.close();
-            }
-        }
-        logger.info("delete " + keySets.size() + " keys for project " + projectName);
-    }
-
     private boolean existNode(PatternNodeKey nodeKey) {
-        Jedis redis = jedisPool.getResource();
-        try {
-            String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-            String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
-            String redisNode = redis.hget(redisLevelKey, redisNodeKey);
-            if (!StringUtils.isEmpty(redisNode)) {
-               return true;
-            }
-        } catch (Exception e) {
-            logger.error("Get node key error, ", e);
-        } finally {
-            redis.close();
-        }
-        return false;
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String result = getHashFieldValue(redisLevelKey, redisNodeKey);
+        return !StringUtils.isEmpty(result);
     }
 
-    public void setMeta(String metaKey, String metaField, String metaValue) {
+    public void setHashFieldValue(String hashKey, String hashField, String value) {
         Jedis redis = jedisPool.getResource();
         try {
-            String redisKey = REDIS_KEY_META_PREFIX + metaKey;
-            redis.hset(redisKey, metaField, metaValue);
+            redis.hset(hashKey, hashField, value);
         } catch (Exception e) {
-            logger.error("set meta for key: " + metaKey + ", field: " +  metaField + "failed.");
+            logger.error("set value for hash key: " + hashKey + ", field: " +  hashField + "failed.");
         } finally {
             if (redis != null) {
                 redis.close();
@@ -257,18 +261,31 @@ public class RedisNodeCenter {
         }
     }
 
-    public String getMeta(String metaKey, String metaField) {
+    private String getHashFieldValue(String hashKey, String hashField) {
         Jedis redis = jedisPool.getResource();
         String result = null;
         try {
-            result = redis.hget(metaKey, metaField);
+            result = redis.hget(hashKey, hashField);
         } catch (Exception e) {
-            logger.error("get meta key: " + metaKey + ", field: " + metaField + "'s values error", e);
+            logger.error("get hash key: " + hashKey + ", field: " + hashField + "'s value error", e);
         } finally {
             if (redis != null) {
                 redis.close();
             }
         }
         return result;
+    }
+
+    private void deleteHashKey(String hashKey) {
+        Jedis redis = jedisPool.getResource();
+        try {
+            redis.del(hashKey);
+        } catch (Exception e) {
+            logger.error("delete hash key " + hashKey + " error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
     }
 }

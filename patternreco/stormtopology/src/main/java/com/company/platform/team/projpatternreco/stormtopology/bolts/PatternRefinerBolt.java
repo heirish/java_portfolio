@@ -4,7 +4,6 @@ import com.company.platform.team.projpatternreco.stormtopology.utils.*;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.google.gson.Gson;
 import edu.emory.mathcs.backport.java.util.Arrays;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -42,7 +41,9 @@ public class PatternRefinerBolt implements IRichBolt {
         lastBackupTime = 0;
         backupInterval = 10 * 60 * 1000;
         //backupInterval = 6 * 1000;
-        parseConfig(map);
+
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get(Constants.CONFIGURE_REDIS_SECTION));
     }
 
     @Override
@@ -55,22 +56,8 @@ public class PatternRefinerBolt implements IRichBolt {
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
 
             //merge i-1, add i
-            Recognizer nodesUtilInstance = Recognizer.getInstance(redisConfMap);
-            PatternMetas metasInstance = PatternMetas.getInstance(redisConfMap);
-            String projectName = parentNodeKey.getProjectName();
-            int levelMax = metasInstance.getPatternLevelMax(projectName);
-            for (int i = 1; i < levelMax + 1; i++) {
-                double similarity = metasInstance.getLeafSimilarity(projectName);
-                double decayedSimilarity = 1 - similarity * Math.pow(1-decayFactor, i);
-                boolean isLastLevel = (i == 10) ? true : false;
-                Pair<PatternNodeKey, List<String>> nextLevelTuple = nodesUtilInstance
-                        .mergePatternToNode(parentNodeKey, patternTokens, 1- decayedSimilarity, isLastLevel);
-                if (nextLevelTuple == null) {
-                    break;
-                }
-                parentNodeKey = nextLevelTuple.getLeft();
-                patternTokens = nextLevelTuple.getRight();
-            }
+            Recognizer recognizer = Recognizer.getInstance(redisConfMap);
+            recognizer.mergeTokenToNode(parentNodeKey, patternTokens);
 
             if (System.currentTimeMillis() - lastBackupTime > backupInterval) {
                 //logger.info("back up pattern trees");
@@ -104,24 +91,5 @@ public class PatternRefinerBolt implements IRichBolt {
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return null;
-    }
-
-
-    private void parseConfig(Map map) {
-        try {
-            this.leafSimilarity = Double.parseDouble(((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("leafSimilarity").toString());
-        } catch (Exception e) {
-            this.leafSimilarity = Constants.PATTERN_LEAF_SIMILARITY_DEFAULT;
-            logger.error("get leafSimilarity value from config file failed, use default value: " + this.leafSimilarity);
-        }
-        try {
-            this.decayFactor = Double.parseDouble(((Map)map.get(Constants.CONFIGURE_PATTERNRECO_SECTION)).get("decayFactor").toString());
-        } catch (Exception e) {
-            this.decayFactor= Constants.SIMILARITY_DECAY_FACTOR_DEFAULT;
-            logger.error("get decayFactor value from config file failed, use default value: " + this.decayFactor);
-        }
-
-        this.redisConfMap = new HashMap<String, Object>();
-        this.redisConfMap.putAll((Map)map.get(Constants.CONFIGURE_REDIS_SECTION));
     }
 }

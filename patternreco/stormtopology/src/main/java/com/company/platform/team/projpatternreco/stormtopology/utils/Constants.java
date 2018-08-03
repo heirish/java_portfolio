@@ -17,7 +17,6 @@ public class Constants {
     public static final String FIELD_REPRESENTTOKENS = "@representTokens";
     public static final String FIELD_PATTERNTOKENS = "@patternTokens";
     public static final String FIELD_META_TYPE = "@metaType";
-    public static final String FIELD_META_KEY = "@metaKey";
 
     //patternreco
     public static final String CONFIGURE_PATTERNRECO_SECTION = "patternreco";
@@ -28,6 +27,7 @@ public class Constants {
     public static final String IDENTIFY_EXCEEDED_TYPE = "NELO_ELIMINATED";
     public static final String PATTERN_TOKENS_DELIMITER = "%@%";
     public static final String FIELD_DELIMITER_DEFAULT = "¬";
+    public static final double SIMILARITY_COMPARE_SPECIOUS = 0.001;
 
     //Storm
     public static final String LOG_OUT_STREAMID = "log";

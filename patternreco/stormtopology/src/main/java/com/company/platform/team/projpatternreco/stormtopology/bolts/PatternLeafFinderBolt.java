@@ -1,13 +1,11 @@
 package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
-import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
-import com.company.platform.team.projpatternreco.stormtopology.utils.PatternMetas;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
 import com.google.gson.Gson;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.IRichBolt;
@@ -36,7 +34,8 @@ public class PatternLeafFinderBolt implements IRichBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         this.replayTuple = true;
-        parseConfig(map);
+        this.redisConfMap = new HashMap<String, Object>();
+        this.redisConfMap.putAll((Map)map.get(Constants.CONFIGURE_REDIS_SECTION));
     }
 
     @Override
@@ -45,22 +44,13 @@ public class PatternLeafFinderBolt implements IRichBolt {
             String log = tuple.getString(0);
             Map<String, String> logMap = gson.fromJson(log, Map.class);
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
-            PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
-
             String body = logMap.get(Constants.FIELD_BODY);
             if (!StringUtils.isBlank(body)) {
-                Recognizer nodesUtilInstance = Recognizer.getInstance(redisConfMap);
-                PatternMetas metaInstance = PatternMetas.getInstance(redisConfMap);
+                Recognizer recognizer = Recognizer.getInstance(redisConfMap);
+                Pair<PatternNodeKey, List<String>> result = recognizer.getLeafNodeId(projectName, body);
 
-                List<String> tokens = preprocess(body,
-                                                 metaInstance.getBodyLengthMax(projectName),
-                                                 metaInstance.getTokensCountMax(projectName));
-                PatternNodeKey nodeKey = nodesUtilInstance.getParentNodeId(tokens, levelKey,
-                        metaInstance.getSimilarityDecayFactor(projectName),
-                        metaInstance.getLeafSimilarityMax(projectName),
-                        metaInstance.getFindTolerance(projectName));
-
-                String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, tokens);
+                PatternNodeKey nodeKey = result.getLeft();
+                String tokenString = String.join(Constants.PATTERN_TOKENS_DELIMITER, result.getRight());
                 if (nodeKey == null) { // to leafaddbolt
                     logMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
                     collector.emit(Constants.PATTERN_UNADDED_STREAMID, new Values(projectName, gson.toJson(logMap)));
@@ -97,27 +87,5 @@ public class PatternLeafFinderBolt implements IRichBolt {
     @Override
     public Map<String, Object> getComponentConfiguration() {
         return null;
-    }
-
-    private void parseConfig(Map map) {
-        this.redisConfMap = new HashMap<String, Object>();
-        this.redisConfMap.putAll((Map)map.get(Constants.CONFIGURE_REDIS_SECTION));
-    }
-
-    private List<String> preprocess(String body, int bodyLengthMax, int tokenCountMax) {
-        if (body.length() > bodyLengthMax) {
-            logger.info("log body is too long, the max length we can handle is " + bodyLengthMax + ",will eliminate the exceeded");
-            body = body.substring(0, bodyLengthMax);
-        }
-        List<String> bodyTokens = Preprocessor.transform(body);
-
-        List<String> tokensLeft = bodyTokens;
-        if (bodyTokens.size() > tokenCountMax) {
-            logger.warn("sequenceLeft exceeds the max length we can handle, will eliminate the exceeded part to "
-                    + Constants.IDENTIFY_EXCEEDED_TYPE + ",tokens:" + Arrays.toString(tokensLeft.toArray()));
-            tokensLeft = new ArrayList(bodyTokens.subList(0, tokenCountMax - 1));
-            tokensLeft.add(Constants.IDENTIFY_EXCEEDED_TYPE);
-        }
-        return tokensLeft;
     }
 }

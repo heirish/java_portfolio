@@ -1,18 +1,21 @@
 package com.company.platform.team.projpatternreco.stormtopology.utils;
 
+import clojure.lang.Cons;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
+import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventListener;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventType;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.MetaEvent;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.SimilarityEvent;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.security.InvalidParameterException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,11 +23,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 //TODO: fresh meta and nodes should be together
 //TODO: cache new nodes on local unsent to node center, and flush to center periodly
-public class Recognizer {
+public final class Recognizer implements IEventListener{
     private static final Logger logger = LoggerFactory.getLogger(Recognizer.class);
-    private static final PatternNodes localPatternNodes = new PatternNodes();
-    private static ConcurrentHashMap<String, Pair<String, Double>> projectSimilarities;
-    private static RedisNodeCenter nodeCenter = null;
+
+    private PatternNodes localPatternNodes;
+    private PatternMetas localPatternMetas;
+    private ConcurrentHashMap<PatternLevelKey, Double> localProjectSimilarities;
+    private RedisNodeCenter nodeCenter;
 
     private static Recognizer instance = null;
 
@@ -36,6 +41,9 @@ public class Recognizer {
     }
 
     private Recognizer(Map conf) {
+        localPatternNodes = new PatternNodes();
+        localPatternMetas = PatternMetas.getInstance(conf);
+        localProjectSimilarities = new ConcurrentHashMap<>();
         if (conf != null) {
             nodeCenter = RedisNodeCenter.getInstance(conf);
             logger.info("node center is enabled.");
@@ -44,97 +52,73 @@ public class Recognizer {
         }
     }
 
-    public PatternNodeKey getParentNodeId(List<String> tokens,
-                                          PatternLevelKey levelKey,
-                                          double similarityDecayFactor,
-                                          double leafSimilarityMax,
-                                          int retryTolerence) throws InvalidParameterException {
-        if (tokens == null || levelKey == null) {
-            logger.error("invalid parameters. tokens or levelKey is null.");
-            throw new InvalidParameterException("invalid parameters, tokens or levelKey is null.");
+    public Pair<PatternNodeKey, List<String>> getLeafNodeId(String projectName, String log) {
+        //preporcess
+        String logBody = log;
+        int bodyLengthMax = localPatternMetas.getBodyLengthMax(projectName);
+        if (log.length() > bodyLengthMax) {
+            logger.info("log body is too long, the max length we can handle is " + bodyLengthMax + ",will eliminate the exceeded");
+            logBody = log.substring(0, bodyLengthMax);
         }
-        Map<PatternNodeKey, PatternNode> levelNodes = localPatternNodes.getNodes(levelKey);
-        if (levelNodes == null || levelNodes.size() == 0) {
-            return null;
-        }
+        List<String> bodyTokens = Preprocessor.transform(logBody);
 
-        double similarity = getSimilarity(levelKey, similarityDecayFactor, leafSimilarityMax);
-        PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, 1-similarity);
-        if (nodeKey != null) {
-            return nodeKey;
+        int tokenCountMax = localPatternMetas.getTokensCountMax(projectName);
+        if (bodyTokens.size() > tokenCountMax) {
+            logger.warn("sequenceLeft exceeds the max length we can handle, will eliminate the exceeded part to "
+                    + Constants.IDENTIFY_EXCEEDED_TYPE + ",tokens:" + Arrays.toString(bodyTokens.toArray()));
+            bodyTokens = new ArrayList(bodyTokens.subList(0, tokenCountMax - 1));
+            bodyTokens.add(Constants.IDENTIFY_EXCEEDED_TYPE);
         }
 
-        int triedTimes = 0;
-        do {
-            Map<PatternNodeKey, PatternNode> newlevelNodes = getNewNodesFromCenter(levelKey);
-            if (newlevelNodes == null || newlevelNodes.size() == 0) {
-                triedTimes++;
-                continue;
-            }
-            nodeKey = findNodeIdFromNodes(tokens, newlevelNodes, 1-similarity);
-            if (nodeKey != null) {
-                return nodeKey;
-            }
-            triedTimes++;
-        } while (triedTimes < retryTolerence);
-
-        logger.debug("Already retried " + retryTolerence + " times, still can't find parent id for given tokens.");
-        return null;
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
+        PatternNodeKey nodeKey = getParentNodeId(levelKey,bodyTokens);
+        return Pair.of(nodeKey, bodyTokens);
     }
 
-    private double getSimilarity(PatternLevelKey levelKey, double decayFactor, double leafSimilarityMax) {
-        double leafSimilarity = getLeafSimilarity(levelKey.getProjectName(), leafSimilarityMax);
-        return leafSimilarity * Math.pow(1-decayFactor, levelKey.getLevel());
-    }
+    public Pair<PatternNodeKey, Boolean> addLeafNode(String projectName, List<String> tokens) {
+        PatternNodeKey nodeKey = null;
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
 
-    private double getLeafSimilarity(String projectName, Double defaultValue) {
-        double leafSimilarity;
-        try {
-            //TODO:get from redis and compare the finger print
-            leafSimilarity = projectSimilarities.get(projectName).getRight();
-        } catch (Exception e) {
-            leafSimilarity = defaultValue;
-            logger.warn("get current similarity failed. will use default simiarity: " + leafSimilarity);
+        int leafLimit = localPatternMetas.getLeafNodesLimit(projectName);
+        int leafNodeSize = localPatternNodes.getLevelNodeSize(levelKey);
+        boolean similarityChanged = false;
+        if (leafNodeSize > leafLimit && stepDownLeafSimilarity(projectName)) {
+            //delete local and nodeCenter
+            localPatternNodes.deleteLevelNodes(levelKey);
+            nodeCenter.deleteLevelNodes(levelKey);
+
+            nodeKey = getParentNodeId(levelKey, tokens);
+            similarityChanged = true;
         }
-        return leafSimilarity;
-    }
 
-    public void stepUpLeafSimilarity(String projectName, double highSimilarity) {
-        double oldSimilarity = getLeafSimilarity(projectName, highSimilarity);
-        double newSimilarity =  (oldSimilarity + highSimilarity) /2;
-        String fingerPrint = UUID.randomUUID().toString();
-        projectSimilarities.put(projectName, Pair.of(fingerPrint, newSimilarity));
-        //TODO: send to redis
-    }
-
-    public void stepDownLeafSimilarity(String projectName, double lowSimilarity) {
-        double oldSimilarity = getLeafSimilarity(projectName, lowSimilarity);
-        double newSimilarity =  (oldSimilarity + lowSimilarity) /2;
-        String fingerPrint = UUID.randomUUID().toString();
-        projectSimilarities.put(projectName, Pair.of(fingerPrint, newSimilarity));
-        //TODO: send to redis
-    }
-
-    public boolean exceedLeafLimit(String projectName, int limit) {
-        int nodeSize = localPatternNodes.getLevelNodeSize(new PatternLevelKey(projectName, 0));
-        return nodeSize > limit;
-    }
-
-    public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
-        PatternNodeKey nodeKey = localPatternNodes.getNodeKeyByRepresentTokens(levelKey, node.getRepresentTokens());
         if (nodeKey == null) {
-            nodeKey = nodeCenter.addNode(levelKey, node);
-            if (nodeKey != null) {
-                localPatternNodes.addNode(nodeKey, node);
-            }
+            PatternNode node = new PatternNode(tokens);
+            nodeKey = addNode(levelKey, node);
         }
-        return nodeKey;
+        return Pair.of(nodeKey, similarityChanged);
     }
 
-    public Pair<PatternNodeKey, List<String>> mergePatternToNode(PatternNodeKey key,
+    public void mergeTokenToNode(PatternNodeKey nodeKey, List<String> tokens)
+            throws PatternRecognizeException, InvalidParameterException{
+        String projectName = nodeKey.getProjectName();
+        int levelMax = localPatternMetas.getPatternLevelMax(projectName);
+
+        PatternNodeKey currentNodeKey = nodeKey;
+        List<String> currentTokens = tokens;
+        //merge i-1, add i
+        for (int i = nodeKey.getLevel(); i < levelMax + 1; i++) {
+            boolean isLastLevel = (i == levelMax) ? true : false;
+            Pair<PatternNodeKey, List<String>> nextLevelTuple = updateNodeWithTokens(currentNodeKey, currentTokens,isLastLevel);
+            if (nextLevelTuple == null) {
+                break;
+            }
+            currentNodeKey = nextLevelTuple.getLeft();
+            currentTokens = nextLevelTuple.getRight();
+        }
+    }
+
+    public Pair<PatternNodeKey, List<String>> updateNodeWithTokens(PatternNodeKey key,
                                                                  List<String> patternTokens,
-                                                                 double similarityDecayFactor,
-                                                                 double similarityMax,
                                                                  boolean isLastLevel)
             throws PatternRecognizeException, InvalidParameterException{
         if (key == null || patternTokens == null) {
@@ -157,8 +141,7 @@ public class Recognizer {
                 logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
             }
             if (!parentNode.hasParent() && !isLastLevel) {
-                PatternNodeKey grandNodeKey = getParentNodeId(mergedTokens, levelKey, similarityDecayFactor,
-                        similarityMax, 1);
+                PatternNodeKey grandNodeKey = getParentNodeId(levelKey, mergedTokens);
                 if (grandNodeKey == null) {
                     grandNodeKey = addNode(levelKey, new PatternNode(mergedTokens));
                     if (grandNodeKey != null) {
@@ -187,13 +170,53 @@ public class Recognizer {
         return null;
     }
 
-    public void deleteLevelNodes(PatternLevelKey levelKey) {
-       localPatternNodes.deleteLevelNodes(levelKey);
-       nodeCenter.deleteLevelNodes(levelKey);
+    //for test
+    public PatternNodeKey getParentNodeId(PatternLevelKey levelKey, List<String> tokens )
+            throws InvalidParameterException {
+        if (tokens == null || levelKey == null) {
+            logger.error("invalid parameters. tokens or levelKey is null.");
+            throw new InvalidParameterException("invalid parameters, tokens or levelKey is null.");
+        }
+        Map<PatternNodeKey, PatternNode> levelNodes = localPatternNodes.getNodes(levelKey);
+        if (levelNodes == null || levelNodes.size() == 0) {
+            return null;
+        }
+
+        double similarity = getSimilarity(levelKey);
+        PatternNodeKey nodeKey = findNodeIdFromNodes(tokens, levelNodes, 1-similarity);
+        if (nodeKey != null) {
+            return nodeKey;
+        }
+
+        int retryTolerence = localPatternMetas.getFindTolerance(levelKey.getProjectName());
+        int triedTimes = 0;
+        do {
+            Map<PatternNodeKey, PatternNode> newlevelNodes = getNewNodesFromCenter(levelKey);
+            if (newlevelNodes == null || newlevelNodes.size() == 0) {
+                triedTimes++;
+                continue;
+            }
+            nodeKey = findNodeIdFromNodes(tokens, newlevelNodes, 1-similarity);
+            if (nodeKey != null) {
+                return nodeKey;
+            }
+            triedTimes++;
+        } while (triedTimes < retryTolerence);
+
+        logger.debug("Already retried " + retryTolerence + " times, still can't find parent id for given tokens.");
+        return null;
     }
 
-    public void deleteLocalLevelNodes(PatternLevelKey levelKey) {
-        localPatternNodes.deleteLevelNodes(levelKey);
+    //for test
+    public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
+        PatternNodeKey nodeKey = localPatternNodes.getNodeKeyByRepresentTokens(levelKey, node.getRepresentTokens());
+        if (nodeKey == null) {
+            nodeKey = nodeCenter.addNode(levelKey, node);
+            if (nodeKey != null) {
+                localPatternNodes.addNode(nodeKey, node);
+            }
+        }
+        return nodeKey;
     }
 
     private void updateNode(PatternNodeKey nodeKey, PatternNode node) {
@@ -202,7 +225,7 @@ public class Recognizer {
         }
     }
 
-    private static PatternNodeKey findNodeIdFromNodes(List<String> tokens,
+    private PatternNodeKey findNodeIdFromNodes(List<String> tokens,
                                                       Map<PatternNodeKey, PatternNode> levelNodes,
                                                       double maxDistance) {
         if (levelNodes != null) {
@@ -215,7 +238,7 @@ public class Recognizer {
         return null;
     }
 
-    private static Map<PatternNodeKey, PatternNode> getNewNodesFromCenter(PatternLevelKey levelKey) {
+    private Map<PatternNodeKey, PatternNode> getNewNodesFromCenter(PatternLevelKey levelKey) {
         Set<PatternNodeKey> localNodeKeys = localPatternNodes.getNodeKeys(levelKey);
         Map<PatternNodeKey, PatternNode> newNodesFromCenter = nodeCenter.getLevelNewNodes(localNodeKeys, levelKey);
         if (newNodesFromCenter != null && newNodesFromCenter.size() > 0) {
@@ -224,5 +247,93 @@ public class Recognizer {
             logger.info("no new nodes from center for key: " + levelKey.toString());
         }
         return newNodesFromCenter;
+    }
+
+    private double getLeafSimilarity(String projectName) {
+        PatternLevelKey leafLevelKey = new PatternLevelKey(projectName, 0);
+        if (!localProjectSimilarities.containsKey(leafLevelKey)) {
+            double leafSimilarite = localPatternMetas.getLeafSimilarityMax(projectName);
+            localProjectSimilarities.put(leafLevelKey, leafSimilarite);
+        }
+
+        return localProjectSimilarities.get(projectName);
+    }
+
+    private double getSimilarity(PatternLevelKey levelKey) {
+        String projectName = levelKey.getProjectName();
+        if (!localProjectSimilarities.containsKey(levelKey)) {
+            double leafSimilarity = getLeafSimilarity(projectName);
+            double decayFactor = localPatternMetas.getSimilarityDecayFactor(projectName);
+            double similarity =  leafSimilarity * Math.pow(1-decayFactor, levelKey.getLevel());
+            localProjectSimilarities.put(levelKey, similarity);
+        }
+        return localProjectSimilarities.get(levelKey);
+    }
+
+    public boolean stepUpLeafSimilarity(String projectName) {
+        double oldSimilarity = getLeafSimilarity(projectName);
+        double highSimilarity = localPatternMetas.getLeafSimilarityMax(projectName);
+        double newSimilarity =  (oldSimilarity + highSimilarity) /2;
+        if (Math.abs(oldSimilarity - highSimilarity) < Constants.SIMILARITY_COMPARE_SPECIOUS) {
+            return false;
+        }
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
+        localProjectSimilarities.put(levelKey, newSimilarity);
+
+        String fingerPrint = UUID.randomUUID().toString();
+        nodeCenter.setLeafSimilarity(projectName, String.valueOf(newSimilarity));
+        return true;
+    }
+
+    public boolean stepDownLeafSimilarity(String projectName) {
+        double oldSimilarity = getLeafSimilarity(projectName);
+        double lowSimilarity = localPatternMetas.getLeafSimilarityMin(projectName);
+        if (Math.abs(oldSimilarity - lowSimilarity) < Constants.SIMILARITY_COMPARE_SPECIOUS) {
+            return false;
+        }
+
+        double newSimilarity =  (oldSimilarity + lowSimilarity) /2;
+        PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
+        localProjectSimilarities.put(levelKey, newSimilarity);
+        String fingerPrint = UUID.randomUUID().toString();
+        nodeCenter.setLeafSimilarity(projectName, String.valueOf(newSimilarity));
+        return true;
+    }
+
+    @Override
+    public void accept(IEventType event) {
+        if (event instanceof SimilarityEvent) {
+            String projectName = ((SimilarityEvent)event).getProjectName();
+            if (refreshProjectSimilarity(projectName)) {
+                deleteProjectNodes(projectName);
+            }
+        } else if (event instanceof MetaEvent) { // decay factor change
+        }
+    }
+
+    private boolean refreshProjectSimilarity(String projectName) {
+        try {
+           double leafSimilarity = Double.parseDouble(nodeCenter.getLeafSimilarity(projectName));
+           int levelMax = localPatternMetas.getPatternLevelMax(projectName);
+           for (int i=0; i< levelMax + 1; i++) {
+               PatternLevelKey levelKey = new PatternLevelKey(projectName, i);
+               if (localProjectSimilarities.containsKey(levelKey)) {
+                   localProjectSimilarities.remove(levelKey);
+               }
+           }
+           localProjectSimilarities.put(new PatternLevelKey(projectName, 0), leafSimilarity);
+           return true;
+        } catch (Exception e) {
+            logger.error("get new similarity from redis error, will not refresh local.");
+        }
+        return false;
+    }
+
+    private void deleteProjectNodes(String projectName) {
+        int levelMax = localPatternMetas.getPatternLevelMax(projectName);
+        for (int i=0; i< levelMax + 1; i++) {
+            PatternLevelKey levelKey  = new PatternLevelKey(projectName, i);
+            localPatternNodes.deleteLevelNodes(levelKey);
+        }
     }
 }
