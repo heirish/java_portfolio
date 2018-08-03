@@ -256,7 +256,7 @@ public final class Recognizer implements IEventListener{
             localProjectSimilarities.put(leafLevelKey, leafSimilarite);
         }
 
-        return localProjectSimilarities.get(projectName);
+        return localProjectSimilarities.get(leafLevelKey);
     }
 
     private double getSimilarity(PatternLevelKey levelKey) {
