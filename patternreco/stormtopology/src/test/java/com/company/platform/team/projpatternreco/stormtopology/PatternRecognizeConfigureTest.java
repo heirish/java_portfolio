@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
-import com.company.platform.team.projpatternreco.stormtopology.utils.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.data.RunningType;
 import org.junit.Test;
 
 import java.util.Map;

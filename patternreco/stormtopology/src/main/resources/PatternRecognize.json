@@ -1,4 +1,7 @@
 {
+  "mysql": {
+
+  },
   "redis": {
     "host": "localhost",
     "port": 11378,
@@ -20,8 +23,11 @@
     "normal-logs-spout": 4,
     "pattern-tokens-spout": 4,
     "pattern-meta-spout": 4,
+    "timer-spout":1,
 
     "MetaUpdatedBolt":4,
+
+    "RedisFlushBolt":4,
 
     "PatternLeafFinderBolt": 20,
     "PatternLeafAppenderBolt": 10,
@@ -33,7 +39,6 @@
   "patternreco":{
     "leafSimilarityMin": 0.5,
     "leafSimilarityMax": 0.9,
-    "leafSimilarity": 0.9,
     "decayFactor": 0.1,
     "bodyLengthMax": 5000,
     "tokenCountMax": 200,

@@ -1,7 +1,7 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
-import com.company.platform.team.projpatternreco.stormtopology.utils.RunningType;
-import com.google.gson.Gson;
+import com.company.platform.team.projpatternreco.stormtopology.data.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.utils.GsonFactory;
 import com.google.gson.stream.JsonReader;
 import org.apache.storm.Config;
 import org.apache.storm.kafka.spout.KafkaSpoutConfig;
@@ -19,7 +19,6 @@ import java.util.Objects;
  */
 public class PatternRecognizeConfigure {
     private static final Logger logger = LoggerFactory.getLogger("");
-    private static final Gson gson = new Gson();
     private final Config stormConf;
     private static PatternRecognizeConfigure instance;
     private static final int DEFAULT_WORKERS = 4;
@@ -30,11 +29,11 @@ public class PatternRecognizeConfigure {
         Map confMap = null;
         try {
             if (runningType == RunningType.LOCAL) {
-                confMap = gson.fromJson(new InputStreamReader(
+                confMap = GsonFactory.getGson().fromJson(new InputStreamReader(
                                 Objects.requireNonNull(this.getClass().getClassLoader().getResourceAsStream(fileName))),
                         Map.class);
             } else {
-                confMap = gson.fromJson(new JsonReader(new FileReader(fileName)), Map.class);
+                confMap = GsonFactory.getGson().fromJson(new JsonReader(new FileReader(fileName)), Map.class);
             }
         } catch (IOException e) {
             e.printStackTrace();

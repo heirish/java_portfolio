@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology.eventbus;
 
-import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
+import com.company.platform.team.projpatternreco.stormtopology.data.RedisNodeCenter;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;

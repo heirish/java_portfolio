@@ -1,7 +1,5 @@
 package com.company.platform.team.projpatternreco.stormtopology.eventbus;
 
-import com.company.platform.team.projpatternreco.stormtopology.utils.PatternMetaType;
-
 /**
  * Created by admin on 2018/8/3.
  */

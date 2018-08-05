@@ -1,9 +1,9 @@
 package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.utils.Aligner;
-import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.google.gson.Gson;
+import com.company.platform.team.projpatternreco.stormtopology.utils.GsonFactory;
 import edu.emory.mathcs.backport.java.util.Arrays;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -21,7 +21,6 @@ import java.util.*;
  * Created by admin on 2018/7/12.
  */
 public class UnmergedLogReducerBolt implements IRichBolt {
-    private static final Gson gson  =  new Gson();
     private static final Logger logger = LoggerFactory.getLogger(UnmergedLogReducerBolt.class);
 
     private OutputCollector collector;
@@ -45,7 +44,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     public void execute(Tuple tuple) {
         try {
             String log = tuple.getString(0);
-            Map<String, String> logMap = gson.fromJson(log, Map.class);
+            Map<String, String> logMap = GsonFactory.getGson().fromJson(log, Map.class);
             PatternNodeKey nodeKey = PatternNodeKey.fromString(logMap.get(Constants.FIELD_PATTERNID));
             List<String> patternTokens = Arrays.asList(logMap.get(Constants.FIELD_PATTERNTOKENS)
                     .split(Constants.PATTERN_TOKENS_DELIMITER));
@@ -68,7 +67,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
                    valueMap.put(Constants.FIELD_PATTERNID, entryNodeKey.toString());
                    valueMap.put(Constants.FIELD_PATTERNTOKENS, tokenString);
                    collector.emit(Constants.PATTERN_UNMERGED_STREAMID,
-                           new Values(nodeKey.getProjectName(), gson.toJson(valueMap)));
+                           new Values(nodeKey.getProjectName(), GsonFactory.getGson().toJson(valueMap)));
                    it.remove();
                }
             }

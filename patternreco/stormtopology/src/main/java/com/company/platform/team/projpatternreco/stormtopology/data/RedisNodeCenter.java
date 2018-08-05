@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology.utils;
+package com.company.platform.team.projpatternreco.stormtopology.data;
 
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
@@ -16,7 +16,7 @@ import java.util.*;
 public class RedisNodeCenter {
     private static final String REDIS_KEY_DELIMITER = ":";
     private static final String REDIS_KEY_PATTERN_PREFIX = "nelo:pattern:nodes";
-    private static final String REDIS_KEY_SIMILARITY_PREFIX = "nelo:pattern:similarity";
+    private static final String REDIS_KEY_META_PREFIX = "nelo:pattern:meta";
     private static final Logger logger = LoggerFactory.getLogger(RedisNodeCenter.class);
 
     private JedisPool jedisPool;
@@ -168,10 +168,20 @@ public class RedisNodeCenter {
         return true;
     }
 
+    public Set<String> getAllProjects() {
+        Set<String> projects = new HashSet<>();
+        String keyPattern = REDIS_KEY_PATTERN_PREFIX + "*";
+        Set<String> levelKeys = scanKeysByPattern(keyPattern);
+        for (String key : levelKeys) {
+            try {
+                PatternLevelKey levelKey = PatternLevelKey.fromDelimitedString(key, REDIS_KEY_DELIMITER);
+                projects.add(levelKey.getProjectName());
+            } catch (Exception e) {
+                logger.error("parse levelKey: " + key + " failed.", e);
+            }
+        }
 
-    public void deleteLevelNodes(PatternLevelKey levelKey) {
-        String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
-        deleteHashKey(redisKey);
+        return projects;
     }
 
     public void deleteProjectNodes(String projectName) {
@@ -194,26 +204,34 @@ public class RedisNodeCenter {
         logger.info("delete " + keySets.size() + " keys for project " + projectName);
     }
 
-    public String getLeafSimilarity(String projectName) {
-        String key = REDIS_KEY_SIMILARITY_PREFIX + projectName;
+    public String getMetaData(String projectName, String metaString) {
+        String key = REDIS_KEY_META_PREFIX + projectName + REDIS_KEY_DELIMITER + metaString;
 
         Jedis redis = jedisPool.getResource();
         try {
             return redis.get(key);
         } catch (Exception e) {
             logger.error("get key: " + key + "'s value error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
         }
         return null;
     }
 
-    public void setLeafSimilarity(String projectName, String value) {
-        String key = REDIS_KEY_SIMILARITY_PREFIX + projectName;
+    public void setMetaData(String projectName, String metaString, String value) {
+        String key = REDIS_KEY_META_PREFIX + projectName + REDIS_KEY_DELIMITER + metaString;
 
         Jedis redis = jedisPool.getResource();
         try {
             redis.set(key, value);
         } catch (Exception e) {
             logger.error("set key: " + key + "'s value error", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
         }
     }
 

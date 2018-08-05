@@ -1,8 +1,9 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.stormtopology.bolts.*;
-import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
-import com.company.platform.team.projpatternreco.stormtopology.utils.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.data.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.utils.TimerSpout;
 import org.apache.commons.cli.*;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.log4j.Logger;
@@ -51,26 +52,21 @@ public final class PatternRecognizeTopology {
     private TopologyBuilder createTopologyBuilder() {
         TopologyBuilder topologyBuilder = new TopologyBuilder();
 
+        //for metaUpdated
         String metaTopic = config.getConfigMap("topics").get("metaupdated").toString();
-        String normalLogTopic = config.getConfigMap("topics").get("normalLog").toString();
-        String unmergedLogTopic = config.getConfigMap("topics").get("unmergedLog").toString();
         String metaTopicSpout = metaTopic + "-spout";
-        String normalLogTopicSpout = normalLogTopic + "-spout";
-        String unmergedLogTopicSpout = unmergedLogTopic + "-spout";
         topologyBuilder.setSpout(metaTopicSpout,
                 createKafkaSpout(metaTopic), config.getParallelismCount(metaTopicSpout));
-        topologyBuilder.setSpout(normalLogTopicSpout,
-                createKafkaSpout(normalLogTopic), config.getParallelismCount(normalLogTopicSpout));
-        topologyBuilder.setSpout(unmergedLogTopicSpout,
-                createKafkaSpout(unmergedLogTopic), config.getParallelismCount(unmergedLogTopicSpout));
-
-        //for metaUpdated
         String metaUpdatedBoltName = "MetaUpdatedBolt";
         topologyBuilder.setBolt(metaTopic, new MetaUpdatedBolt(),
                 config.getParallelismCount(metaUpdatedBoltName))
                 .allGrouping(metaTopicSpout);
 
         // for LeafFinder
+        String normalLogTopic = config.getConfigMap("topics").get("normalLog").toString();
+        String normalLogTopicSpout = normalLogTopic + "-spout";
+        topologyBuilder.setSpout(normalLogTopicSpout,
+                createKafkaSpout(normalLogTopic), config.getParallelismCount(normalLogTopicSpout));
         String leafFinderBoltName = "PatternLeafFinderBolt";
         String leafAppenderBoltName = "PatternLeafAppenderBolt";
         String logIndexBoltName = "LogIndexBolt";
@@ -84,7 +80,7 @@ public final class PatternRecognizeTopology {
                 .shuffleGrouping(leafFinderBoltName, Constants.LOG_OUT_STREAMID)
                 .shuffleGrouping(leafAppenderBoltName, Constants.LOG_OUT_STREAMID);
 
-        //Finder output to kafka or else where
+        //Finder output to kafka
         Properties props = new Properties();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBrokerHosts());
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, config.getProducerSerializer());
@@ -103,16 +99,12 @@ public final class PatternRecognizeTopology {
                 .shuffleGrouping(leafFinderBoltName, Constants.PATTERN_UNMERGED_STREAMID)
                 .shuffleGrouping(leafAppenderBoltName, Constants.PATTERN_UNMERGED_STREAMID);
 
-        //create kafkabolt for similarity change
-        KafkaBolt metaKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(metaTopic))
-                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
-                .withProducerProperties(props);
-        topologyBuilder.setBolt(metaTopic + "Bolt", metaKafkaBolt,
-                config.getParallelismCount(metaTopic + "Bolt"))
-                .shuffleGrouping(leafAppenderBoltName, Constants.PATTERN_META_STREAMID);
-
 
         //for pattern refiner
+        String unmergedLogTopic = config.getConfigMap("topics").get("unmergedLog").toString();
+        String unmergedLogTopicSpout = unmergedLogTopic + "-spout";
+        topologyBuilder.setSpout(unmergedLogTopicSpout,
+                createKafkaSpout(unmergedLogTopic), config.getParallelismCount(unmergedLogTopicSpout));
         String reducerBoltName = "UnmergedLogReducerBolt";
         String refinerBoltName = "PatternRefinerBolt";
         topologyBuilder.setBolt(reducerBoltName, new UnmergedLogReducerBolt(),
@@ -121,6 +113,19 @@ public final class PatternRecognizeTopology {
         topologyBuilder.setBolt(refinerBoltName, new PatternRefinerBolt(),
                 config.getParallelismCount(refinerBoltName))
                 .fieldsGrouping(reducerBoltName, Constants.PATTERN_UNMERGED_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
+
+        // for flush nodes to DB
+        String timerSpout = "timer-spout";
+        topologyBuilder.setSpout(timerSpout, new TimerSpout(), 1);
+        String redisFlushBolt = "RedisFlushBolt";
+        topologyBuilder.setBolt(redisFlushBolt, new RedisFlushBolt(), 1)
+                .shuffleGrouping(timerSpout);
+        //create kafkabolt for similarity change
+        KafkaBolt metaKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(metaTopic))
+                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
+                .withProducerProperties(props);
+        topologyBuilder.setBolt(metaTopic + "Bolt", metaKafkaBolt, 1)
+                .shuffleGrouping(redisFlushBolt, Constants.PATTERN_META_STREAMID);
 
         return topologyBuilder;
     }

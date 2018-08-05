@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology.utils;
+package com.company.platform.team.projpatternreco.stormtopology.data;
 
 import com.company.platform.team.projpatternreco.common.data.*;
 import org.apache.commons.lang.StringUtils;

@@ -1,7 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
-import com.company.platform.team.projpatternreco.stormtopology.utils.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;

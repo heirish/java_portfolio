@@ -1,9 +1,10 @@
-package com.company.platform.team.projpatternreco.stormtopology.utils;
+package com.company.platform.team.projpatternreco.stormtopology.data;
 
 /**
  * Created by admin on 2018/7/31.
  */
 public enum PatternMetaType {
+    LEAF_SIMILARITY("leafSimilarity"),
     LEAF_SIMILARITY_MIN("leafSimilarityMin"),
     LEAF_SIMILARITY_MAX("leafSimilarityMax"),
     LEAF_NODES_LIMIT("leafNodesLimit"),

@@ -3,17 +3,14 @@ package com.company.platform.team.projpatternreco.stormtopology;
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
-import com.company.platform.team.projpatternreco.stormtopology.utils.PatternNodes;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
-import com.company.platform.team.projpatternreco.stormtopology.utils.RedisNodeCenter;
-import org.apache.commons.lang3.tuple.Pair;
+import com.company.platform.team.projpatternreco.stormtopology.data.RedisNodeCenter;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,6 +18,7 @@ import java.util.Map;
  * Created by Administrator on 2018/7/15 0015.
  */
 public class PatternNodesTest {
+    private static Map config = null;
     @Test
     public void getNodesTest() {
         try {
