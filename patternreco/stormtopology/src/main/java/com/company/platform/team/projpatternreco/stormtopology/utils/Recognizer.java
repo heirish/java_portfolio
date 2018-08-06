@@ -153,8 +153,6 @@ public final class Recognizer implements IEventListener{
                 } else {
                     logger.error("set parent for node: " + key.toString() + "failed.");
                 }
-            } else {
-                logger.info("node: " + key.toString() + "has parent: " + parentNode.getParentId().toString());
             }
 
             boolean parentNodeUpdated = false;
@@ -169,7 +167,7 @@ public final class Recognizer implements IEventListener{
             }
         } catch (Exception e) {
             logger.warn("Failed to merge tokens to it's parent pattern.", e);
-            throw new PatternRecognizeException("Failed to merge tokens to it's parent pattern" + e.getMessage());
+            throw new PatternRecognizeException("Failed to merge tokens to it's parent pattern." + e.getMessage());
         }
 
         logger.info("No need to update node [" + key.toString() + "] pattern.");
