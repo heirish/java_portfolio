@@ -143,9 +143,10 @@ public final class Recognizer implements IEventListener{
                 logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
             }
             if (!parentNode.hasParent() && !isLastLevel) {
-                PatternNodeKey grandNodeKey = getParentNodeId(levelKey, mergedTokens);
+                List<String> representTokens = parentNode.getRepresentTokens();
+                PatternNodeKey grandNodeKey = getParentNodeId(levelKey, representTokens);
                 if (grandNodeKey == null) {
-                    grandNodeKey = addNode(levelKey, new PatternNode(mergedTokens));
+                    grandNodeKey = addNode(levelKey, new PatternNode(representTokens));
                 }
                 if (grandNodeKey != null) {
                     parentNode.setParent(grandNodeKey);
