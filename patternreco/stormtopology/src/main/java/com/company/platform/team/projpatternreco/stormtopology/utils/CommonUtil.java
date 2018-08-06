@@ -17,8 +17,9 @@ public class CommonUtil {
     }
 
     public static boolean equalWithPrecision(double value1, double value2, int precision) {
-        BigDecimal bdValue1 = new BigDecimal(value1).setScale(precision, RoundingMode.HALF_EVEN);
-        BigDecimal bdValue2 = new BigDecimal(value2).setScale(precision, RoundingMode.HALF_EVEN);
-        return StringUtils.equals(bdValue1.toString(), bdValue2.toEngineeringString());
+        double precisionFactor = Math.pow(10, precision);
+        BigDecimal bdValue1 = new BigDecimal(value1 * precisionFactor).setScale(0, RoundingMode.HALF_EVEN);
+        BigDecimal bdValue2 = new BigDecimal(value2 * precisionFactor).setScale(0, RoundingMode.HALF_EVEN);
+        return StringUtils.equals(bdValue1.toString(), bdValue2.toString());
     }
 }

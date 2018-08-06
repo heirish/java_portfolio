@@ -2,6 +2,8 @@ package com.company.platform.team.projpatternreco.stormtopology;
 
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
+import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.CommonUtil;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.apache.commons.lang.StringUtils;
@@ -45,7 +47,7 @@ public class UsageTest {
 
     @Test
     public void exponentialDecayTest() {
-        double initValue = 0.7;
+        double initValue = 0.5;
         double decayFactor = 0.2;
         int levelMax = 10;
         for (int i=1; i<levelMax + 1; i++) {
@@ -71,5 +73,10 @@ public class UsageTest {
                 bb.setScale(2, RoundingMode.HALF_EVEN).toEngineeringString())) {
             System.out.println("equal");
         }
+
+        double oldSimilarity = 0.51;
+        System.out.println(CommonUtil.equalWithPrecision(oldSimilarity, 0.5, Constants.SIMILARITY_PRECISION));
+        double newSimilarity = CommonUtil.round((oldSimilarity + 0.5) / 2, Constants.SIMILARITY_PRECISION);
+        System.out.println("new value:" + newSimilarity);
     }
 }

@@ -117,15 +117,12 @@ public final class PatternRecognizeTopology {
         // for flush nodes to DB
         String timerSpout = "timer-spout";
         topologyBuilder.setSpout(timerSpout, new TimerSpout(), 1);
+        String timerSpreadBolt = "TimerSpreadBolt";
         String redisFlushBolt = "RedisFlushBolt";
-        topologyBuilder.setBolt(redisFlushBolt, new RedisFlushBolt(), 1)
+        topologyBuilder.setBolt(timerSpreadBolt, new TimerSpreadBolt(), 1)
                 .shuffleGrouping(timerSpout);
-        //create kafkabolt for similarity change
-        KafkaBolt metaKafkaBolt = new KafkaBolt().withTopicSelector(new DefaultTopicSelector(metaTopic))
-                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key", "value"))
-                .withProducerProperties(props);
-        topologyBuilder.setBolt(metaTopic + "Bolt", metaKafkaBolt, 1)
-                .shuffleGrouping(redisFlushBolt, Constants.PATTERN_META_STREAMID);
+        topologyBuilder.setBolt(redisFlushBolt, new RedisFlushBolt(), config.getParallelismCount(redisFlushBolt))
+                .fieldsGrouping(timerSpreadBolt, Constants.REDIS_FLUSH_STREAMID, new Fields(Constants.FIELD_PROJECTNAME));
 
         return topologyBuilder;
     }

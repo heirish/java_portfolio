@@ -35,7 +35,7 @@ public final class PatternNodes {
         }
     }
 
-    public void addLevelNodes(PatternLevelKey levelKey, Map<PatternNodeKey, PatternNode> nodes) {
+    public void addNodes(Map<PatternNodeKey, PatternNode> nodes) {
         if (nodes != null) {
             for (Map.Entry<PatternNodeKey, PatternNode> node : nodes.entrySet() ) {
                addNode(node.getKey(), node.getValue());
@@ -64,6 +64,16 @@ public final class PatternNodes {
             logger.info("delete levelKey " + levelKey.toString() + "failed.");
         } else {
             logger.info("delete levelKey " + levelKey.toString() + "success.");
+        }
+    }
+
+    public void deleteProjectNodes(String projectName) {
+        if (!StringUtils.isEmpty(projectName)) {
+            for (PatternLevelKey key : patternNodes.keySet()) {
+                if (StringUtils.equals(key.getProjectName(), projectName)) {
+                    deleteLevelNodes(key);
+                }
+            }
         }
     }
 

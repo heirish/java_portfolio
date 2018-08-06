@@ -84,18 +84,17 @@ public class PatternMetas {
             leafCountMax = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
             leafCountMax = LEAF_COUNT_MAX_DEFAULT;
-            logger.warn("get leafCountMax for project" + projectName + "failed. use default Value" + leafCountMax);
+            logger.warn("get leafCountMax for project " + projectName + " failed. use default Value" + leafCountMax);
         }
         return leafCountMax;
     }
 
     public boolean stepUpLeafSimilarity(String projectName) {
         double oldSimilarity = getLeafSimilarity(projectName);
-        if (CommonUtil.equalWithPrecision(oldSimilarity, leafSimilarityMax, Constants.SIMILARITY_PRECISION)) {
+        double newSimilarity =  CommonUtil.round((oldSimilarity + leafSimilarityMax) / 2, Constants.SIMILARITY_PRECISION);
+        if (CommonUtil.equalWithPrecision(oldSimilarity, newSimilarity, Constants.SIMILARITY_PRECISION)) {
             return false;
         }
-
-        double newSimilarity =  (oldSimilarity + leafSimilarityMax) /2;
         String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_SIMILARITY);
         projectMetas.put(metaKey, String.valueOf(newSimilarity));
         setMetaToRedis(projectName, PatternMetaType.LEAF_SIMILARITY);
@@ -106,11 +105,10 @@ public class PatternMetas {
 
     public boolean stepDownLeafSimilarity(String projectName) {
         double oldSimilarity = getLeafSimilarity(projectName);
-        if (CommonUtil.equalWithPrecision(oldSimilarity, leafSimilarityMin, Constants.SIMILARITY_PRECISION)) {
+        double newSimilarity = CommonUtil.round((oldSimilarity + leafSimilarityMin) / 2, Constants.SIMILARITY_PRECISION);
+        if (CommonUtil.equalWithPrecision(oldSimilarity, newSimilarity, Constants.SIMILARITY_PRECISION)) {
             return false;
         }
-
-        double newSimilarity =  (oldSimilarity + leafSimilarityMin) /2;
         String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_SIMILARITY);
         projectMetas.put(metaKey, String.valueOf(newSimilarity));
         setMetaToRedis(projectName, PatternMetaType.LEAF_SIMILARITY);
@@ -159,7 +157,7 @@ public class PatternMetas {
             leafSimilarity = Double.parseDouble(projectMetas.get(metaKey));
         } catch (Exception e) {
             leafSimilarity = leafSimilarityMax;
-            logger.warn("get similarity for project " + projectName + "failed, use default: " + leafSimilarity);
+            logger.debug("get similarity for project " + projectName + " failed, use default: " + leafSimilarity);
         }
         return leafSimilarity;
     }
