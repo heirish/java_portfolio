@@ -34,7 +34,7 @@ public class RedisFlushBolt implements IRichBolt{
             //delete DB level 1-10
             //flush all level 1-10, transaction?
             // if this is a new tree, relink level 0, and then set it to old tree.
-            recognizer.constraintLeafCapacity(projectName);
+            recognizer.limitLeafCapacity(projectName);
         } catch (Exception e) {
             collector.reportError(e);
         }

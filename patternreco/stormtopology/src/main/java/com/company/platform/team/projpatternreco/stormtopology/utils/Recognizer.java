@@ -81,7 +81,7 @@ public final class Recognizer implements IEventListener{
         return nodeCenter.getAllProjects();
     }
 
-    public void constraintLeafCapacity(String projectName) {
+    public void limitLeafCapacity(String projectName) {
         int leafLimit = localPatternMetas.getLeafCountMax(projectName);
         //can not use local, because can not make it's in same worker as project's appender;
         long leafNodeSize = nodeCenter.getLevelNodeSize(new PatternLevelKey(projectName, 0));
@@ -127,12 +127,13 @@ public final class Recognizer implements IEventListener{
 
         if (parentNode == null) {
             //add Leaf if nodeKeys's level is  0
-            if (key.getLevel() == 0) {
-                parentNode = new PatternNode(patternTokens);
-            } else {
+            //pattern might get lost when rebuld tree.
+            //if (key.getLevel() == 0) {
+            //    parentNode = new PatternNode(patternTokens);
+            //} else {
                 logger.error("can not find node for key: " + key.toString());
-                throw new PatternRecognizeException("can not find node for key: " + key.toString());
-            }
+                return null;
+            //}
         }
 
         try {
@@ -146,7 +147,9 @@ public final class Recognizer implements IEventListener{
                 List<String> representTokens = parentNode.getRepresentTokens();
                 PatternNodeKey grandNodeKey = getParentNodeId(levelKey, representTokens);
                 if (grandNodeKey == null) {
-                    grandNodeKey = addNode(levelKey, new PatternNode(representTokens));
+                    PatternNode grandNode = new PatternNode(representTokens);
+                    grandNode.updatePatternTokens(parentNode.getPatternTokens());
+                    grandNodeKey = addNode(levelKey, grandNode);
                 }
                 if (grandNodeKey != null) {
                     parentNode.setParent(grandNodeKey);

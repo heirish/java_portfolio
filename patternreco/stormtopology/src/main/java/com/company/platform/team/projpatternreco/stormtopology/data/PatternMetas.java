@@ -23,6 +23,13 @@ public class PatternMetas {
     private ConcurrentHashMap<String, String> projectMetas;
 
     //configurable global metas
+    private static double SIMILARITY_DECAY_FACTOR_DEFAULT = 0.1;
+    private static double LEAF_SIMILARITY_MIN_DEFAULT = 0.5;
+    private static double LEAF_SIMILARITY_MAX_DEFAULT = 0.9;
+    private static int FIND_TOLERENCE_DEFAULT = 3;
+    private static int PATTERN_LEVEL_MAX_DEFAULT = 10;
+    private static int BODY_LENGTH_MAX_DEFAULT = 5000;
+    private static int TOKEN_COUNT_MAX_DEFAULT = 200;
     private double similarityDecayFactor;
     private double leafSimilarityMin;
     private double leafSimilarityMax;
@@ -38,11 +45,21 @@ public class PatternMetas {
     private PatternMetas(Map conf) {
         projectMetas = new ConcurrentHashMap<>();
 
-        Map redisConf = (Map)conf.get(Constants.CONFIGURE_REDIS_SECTION);
-        redisNodeCenter = RedisNodeCenter.getInstance(redisConf);
+        if (conf != null) {
+            Map redisConf = (Map) conf.get(Constants.CONFIGURE_REDIS_SECTION);
+            redisNodeCenter = RedisNodeCenter.getInstance(redisConf);
 
-        Map patternrecoConf = (Map)conf.get(Constants.CONFIGURE_PATTERNRECO_SECTION);
-        parseConfiguredGlobalMetas(patternrecoConf);
+            Map patternrecoConf = (Map) conf.get(Constants.CONFIGURE_PATTERNRECO_SECTION);
+            parseConfiguredGlobalMetas(patternrecoConf);
+        } else {
+            similarityDecayFactor = SIMILARITY_DECAY_FACTOR_DEFAULT;
+            leafSimilarityMin = LEAF_SIMILARITY_MIN_DEFAULT;
+            leafSimilarityMax = LEAF_SIMILARITY_MAX_DEFAULT;
+            findTolerence = FIND_TOLERENCE_DEFAULT;
+            patternLevelMax = PATTERN_LEVEL_MAX_DEFAULT;
+            bodyLengthMax = BODY_LENGTH_MAX_DEFAULT;
+            tokenCountMax = TOKEN_COUNT_MAX_DEFAULT;
+        }
     }
 
     public static synchronized PatternMetas getInstance(Map conf) {
@@ -71,7 +88,7 @@ public class PatternMetas {
 
     public double getSimilarity(PatternLevelKey levelKey) {
         double leafSimilarity = getLeafSimilarity(levelKey.getProjectName());
-        double similarity =  leafSimilarity * Math.pow(1-leafSimilarity, levelKey.getLevel());
+        double similarity =  leafSimilarity * Math.pow(1-similarityDecayFactor, levelKey.getLevel());
         double roundedSimilarity = CommonUtil.round(similarity, Constants.SIMILARITY_PRECISION);
         return roundedSimilarity;
     }
@@ -167,7 +184,7 @@ public class PatternMetas {
         try {
             similarityDecayFactor = Double.parseDouble(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            similarityDecayFactor = 0.1;
+            similarityDecayFactor = SIMILARITY_DECAY_FACTOR_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + similarityDecayFactor);
         }
 
@@ -175,7 +192,7 @@ public class PatternMetas {
         try {
             leafSimilarityMin= Double.parseDouble(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            leafSimilarityMin = 0.5;
+            leafSimilarityMin = LEAF_SIMILARITY_MIN_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + leafSimilarityMin);
         }
 
@@ -183,7 +200,7 @@ public class PatternMetas {
         try {
             leafSimilarityMax= Double.parseDouble(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            leafSimilarityMax = 0.9;
+            leafSimilarityMax = LEAF_SIMILARITY_MAX_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + leafSimilarityMax);
         }
 
@@ -191,7 +208,7 @@ public class PatternMetas {
         try {
             findTolerence = Integer.parseInt(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            findTolerence = 2;
+            findTolerence = FIND_TOLERENCE_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + findTolerence);
         }
 
@@ -199,7 +216,7 @@ public class PatternMetas {
         try {
             patternLevelMax = Integer.parseInt(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            patternLevelMax = 10;
+            patternLevelMax = PATTERN_LEVEL_MAX_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + patternLevelMax);
         }
 
@@ -207,7 +224,7 @@ public class PatternMetas {
         try{
             bodyLengthMax = Integer.parseInt(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            bodyLengthMax = 5000;
+            bodyLengthMax = BODY_LENGTH_MAX_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + bodyLengthMax);
         }
 
@@ -215,7 +232,7 @@ public class PatternMetas {
         try {
             tokenCountMax = Integer.parseInt(conf.get(metaTypeString).toString());
         } catch (Exception e) {
-            tokenCountMax = 200;
+            tokenCountMax = TOKEN_COUNT_MAX_DEFAULT;
             logger.warn("get " + metaTypeString + " from config failed, use default: " + tokenCountMax);
         }
     }
