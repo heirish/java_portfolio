@@ -8,7 +8,6 @@ import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.stormtopology.data.PatternMetas;
 import com.company.platform.team.projpatternreco.stormtopology.data.PatternNodes;
-import com.company.platform.team.projpatternreco.stormtopology.data.RedisNodeCenter;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventListener;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventType;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.MetaEvent;
@@ -28,7 +27,7 @@ public final class Recognizer implements IEventListener{
 
     private PatternNodes localPatternNodes;
     private PatternMetas localPatternMetas;
-    private RedisNodeCenter nodeCenter;
+    private RedisUtil nodeCenter;
 
     private static Recognizer instance = null;
 
@@ -44,7 +43,7 @@ public final class Recognizer implements IEventListener{
 
         Map redisConf = (Map)conf.get(Constants.CONFIGURE_REDIS_SECTION);
         if (conf != null) {
-            nodeCenter = RedisNodeCenter.getInstance(redisConf);
+            nodeCenter = RedisUtil.getInstance(redisConf);
             logger.info("node center is enabled.");
         } else {
             logger.warn("there is no node center, all the nodes will be cached local.");

@@ -2,7 +2,7 @@ package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.stormtopology.data.PatternMetaType;
-import com.company.platform.team.projpatternreco.stormtopology.data.RedisNodeCenter;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisUtil;
 import com.company.platform.team.projpatternreco.stormtopology.utils.GsonFactory;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -40,8 +40,8 @@ public class MetaUpdatedBolt implements IRichBolt {
 
             //TODO:synchronize change meta from DB to redis
             String value = "";
-            RedisNodeCenter redisNodeCenter = RedisNodeCenter.getInstance(redisConfMap);
-            redisNodeCenter.setMetaData(projectName, type.toString(), value);
+            RedisUtil redisUtil = RedisUtil.getInstance(redisConfMap);
+            redisUtil.setMetaData(projectName, type.toString(), value);
             collector.ack(tuple);
         } catch (Exception e) {
             collector.reportError(e);

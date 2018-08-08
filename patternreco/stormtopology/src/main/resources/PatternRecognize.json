@@ -1,6 +1,9 @@
 {
   "mysql": {
-
+    "url": "jdbc:mysql://localhost:3306/dbname",
+    "user": "",
+    "password": "",
+    "pooled": true
   },
   "redis": {
     "host": "localhost",

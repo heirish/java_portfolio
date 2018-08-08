@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNodeMapper">
+    <select id="selectProjectLeaves" resultType="com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNode">
+        select a.project_id as projectID,
+               a.pattern_level as patternLevel,
+               a.pattern_key as patternKey,
+               a.parent_key as parentKey,
+               a.pattern as pattern
+        from nelo2_pattern_nodes a, nelo2_projects b
+        where a.project_id = b.id
+              and a.pattern_level = 0
+              and b.project_name = #{projectName};
+    </select>
+</mapper>

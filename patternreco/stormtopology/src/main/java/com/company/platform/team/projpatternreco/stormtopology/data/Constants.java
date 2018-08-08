@@ -32,7 +32,7 @@ public class Constants {
     public static final String PATTERN_UNADDED_STREAMID = "unadded";
     public static final String PATTERN_META_STREAMID = "meta";
     public static final String REDIS_FLUSH_STREAMID = "redisFlush";
-    public static int SIMILARITY_PRECISION = 2;
+    public static final int SIMILARITY_PRECISION = 2;
 
     public static final Type LOG_MAP_TYPE = new TypeToken<HashMap<String, String>>() {}.getType();
 }

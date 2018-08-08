@@ -1,4 +1,4 @@
-package com.company.platform.team.projpatternreco.stormtopology.data;
+package com.company.platform.team.projpatternreco.stormtopology.utils;
 
 import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.common.data.PatternNode;
@@ -13,17 +13,17 @@ import java.util.*;
 /**
  * Created by admin on 2018/7/12.
  */
-public class RedisNodeCenter {
+public class RedisUtil {
     private static final String REDIS_KEY_DELIMITER = ":";
     private static final String REDIS_KEY_PATTERN_PREFIX = "nelo:pattern:nodes:";
     private static final String REDIS_KEY_META_PREFIX = "nelo:pattern:meta:";
-    private static final Logger logger = LoggerFactory.getLogger(RedisNodeCenter.class);
+    private static final Logger logger = LoggerFactory.getLogger(RedisUtil.class);
 
     private JedisPool jedisPool;
-    private static RedisNodeCenter nodeCenter;
+    private static RedisUtil nodeCenter;
 
 
-    private RedisNodeCenter(Map config) {
+    private RedisUtil(Map config) {
         String host = config.get("host").toString();
         int port = (int)Double.parseDouble(config.get("port").toString());
 
@@ -48,9 +48,9 @@ public class RedisNodeCenter {
         jedisPool = new JedisPool(jedisPoolConfig, host, port);
     }
 
-    public static synchronized  RedisNodeCenter getInstance(Map config) {
+    public static synchronized RedisUtil getInstance(Map config) {
        if (nodeCenter == null) {
-          nodeCenter = new RedisNodeCenter(config);
+          nodeCenter = new RedisUtil(config);
        }
        return nodeCenter;
     }

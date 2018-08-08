@@ -4,6 +4,7 @@ import com.company.platform.team.projpatternreco.common.data.PatternLevelKey;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.EventBus;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.SimilarityEvent;
 import com.company.platform.team.projpatternreco.stormtopology.utils.CommonUtil;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisUtil;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +39,7 @@ public class PatternMetas {
     private int bodyLengthMax;
     private int tokenCountMax;
 
-    private RedisNodeCenter redisNodeCenter;
+    private RedisUtil redisUtil;
 
     private static PatternMetas instance;
 
@@ -47,7 +48,7 @@ public class PatternMetas {
 
         if (conf != null) {
             Map redisConf = (Map) conf.get(Constants.CONFIGURE_REDIS_SECTION);
-            redisNodeCenter = RedisNodeCenter.getInstance(redisConf);
+            redisUtil = RedisUtil.getInstance(redisConf);
 
             Map patternrecoConf = (Map) conf.get(Constants.CONFIGURE_PATTERNRECO_SECTION);
             parseConfiguredGlobalMetas(patternrecoConf);
@@ -138,7 +139,7 @@ public class PatternMetas {
         String metaKey = getMetaKey(projectName, type);
         String oldValue = projectMetas.get(metaKey);
 
-        String redisValue = redisNodeCenter.getMetaData(projectName, type.getTypeString());
+        String redisValue = redisUtil.getMetaData(projectName, type.getTypeString());
         if (type == PatternMetaType.LEAF_SIMILARITY
             && !StringUtils.equals(oldValue, redisValue)) {
             publishSimilarityEvent(projectName);
@@ -157,7 +158,7 @@ public class PatternMetas {
     private void setMetaToRedis(String projectName, PatternMetaType type) {
         String metaKey = getMetaKey(projectName, type);
         String value = projectMetas.get(metaKey);
-       redisNodeCenter.setMetaData(projectName, type.getTypeString(), value);
+       redisUtil.setMetaData(projectName, type.getTypeString(), value);
     }
 
     private String getMetaKey(String projectName, PatternMetaType type) {

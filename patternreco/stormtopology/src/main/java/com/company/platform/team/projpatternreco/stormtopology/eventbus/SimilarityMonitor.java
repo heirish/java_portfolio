@@ -1,6 +1,6 @@
 package com.company.platform.team.projpatternreco.stormtopology.eventbus;
 
-import com.company.platform.team.projpatternreco.stormtopology.data.RedisNodeCenter;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisUtil;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import org.slf4j.Logger;
@@ -19,7 +19,7 @@ public final class SimilarityMonitor extends Thread{
     private static final EventBus eventBusInstance = EventBus.getInstance();
     private static long INTERVAL_MILISECONDS_DEFAULT = 10;
 
-    private RedisNodeCenter nodeCenter;
+    private RedisUtil nodeCenter;
     private long interval;
 
     public SimilarityMonitor(Map conf) {
@@ -29,7 +29,7 @@ public final class SimilarityMonitor extends Thread{
             interval = INTERVAL_MILISECONDS_DEFAULT;
             logger.warn("get similarityMonitorInterval from config failed, use default value:" + interval);
         }
-        nodeCenter = RedisNodeCenter.getInstance(conf);
+        nodeCenter = RedisUtil.getInstance(conf);
     }
 
     public void start() {
