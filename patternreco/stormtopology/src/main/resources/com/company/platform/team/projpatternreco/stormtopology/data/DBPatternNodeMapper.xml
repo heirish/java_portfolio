@@ -9,7 +9,7 @@
                a.pattern_key as patternKey,
                a.parent_key as parentKey,
                a.pattern as pattern
-        from nelo2_pattern_nodes a, nelo2_projects b
+        from pattern_nodes a, projects b
         where a.project_id = b.id
               and a.pattern_level = 0
               and b.project_name = #{projectName};
