@@ -34,7 +34,9 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.replayTuple = true;
+        //for test
+        this.replayTuple = false;
+        //this.replayTuple = true;
         this.cachedPatterns = new HashMap<>();
         this.cacheStartTime = 0L;
         parseConfig(map);

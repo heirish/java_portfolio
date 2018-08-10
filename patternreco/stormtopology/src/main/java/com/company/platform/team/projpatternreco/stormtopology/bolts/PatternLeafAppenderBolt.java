@@ -52,7 +52,7 @@ public class PatternLeafAppenderBolt implements IRichBolt {
                 unmergedMap.put(Constants.FIELD_PATTERNTOKENS, bodyTokenString);
                 collector.emit(Constants.PATTERN_UNMERGED_STREAMID, new Values(GsonFactory.getGson().toJson(unmergedMap)));
 
-                logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
+                logMap.put(Constants.FIELD_LEAFID, nodeKey.getId());
             }
 
             // to es

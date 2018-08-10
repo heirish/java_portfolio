@@ -58,7 +58,7 @@ public class PatternLeafFinderBolt implements IRichBolt {
                             new Values(GsonFactory.getGson().toJson(valueMap)));
 
                     // to es
-                    logMap.put(Constants.FIELD_LEAFID, nodeKey.toString());
+                    logMap.put(Constants.FIELD_LEAFID, nodeKey.getId());
                     collector.emit(Constants.LOG_OUT_STREAMID,
                             new Values(GsonFactory.getGson().toJson(logMap)));
                 }

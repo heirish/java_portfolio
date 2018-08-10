@@ -3,15 +3,37 @@
     PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNodeMapper">
-    <select id="selectProjectLeaves" resultType="com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNode">
-        select a.project_id as projectID,
-               a.pattern_level as patternLevel,
+    <select id="selectProjectLeaves" resultType="com.company.platform.team.projpatternreco.stormtopology.data.DBProjectPatternNode">
+        select a.pattern_level as patternLevel,
                a.pattern_key as patternKey,
                a.parent_key as parentKey,
-               a.pattern as pattern
-        from pattern_nodes a, projects b
+               a.pattern as pattern,
+               a.represent as represent
+        from nelo2_pattern_nodes a, nelo2_projects b
         where a.project_id = b.id
               and a.pattern_level = 0
               and b.project_name = #{projectName};
     </select>
+    <select id="selectProjectId" resultType="int">
+        select id from nelo2_projects
+        where project_name = #{projectName}
+    </select>
+    <delete id="deleteProjectNodes">
+        delete from nelo2_pattern_nodes
+        where pattern_level > 0
+        and project_id = #{projectId}
+    </delete>
+    <insert id="insertProjectNodes" parameterType="java.util.List">
+        insert into nelo2_pattern_nodes (project_id, pattern_level, pattern_key, parent_key, pattern, represent)
+        values 
+        <foreach collection="list" item="item" index="index" separator=",">
+        (#{item.projectId}, #{item.patternLevel}, #{item.patternKey}, #{item.parentKey}, #{item.pattern}, #{item.represent})
+        </foreach>
+    </insert>
+    <update id="updateParentNode">
+        update nelo2_pattern_nodes set parent_key = #{parentKey}
+        where project_id = #{projectId}
+        and pattern_level = #{patternLevel}
+        and pattern_key = #{patternKey}
+    </update>
 </mapper>

@@ -70,30 +70,18 @@ public class PatternMetas {
         return instance;
     }
 
-
     public int getPatternLevelMax() {
         return patternLevelMax;
     }
-
     public int getBodyLengthMax() {
         return bodyLengthMax;
     }
-
     public int getTokenCountMax() {
         return tokenCountMax;
     }
-
     public int getFindTolerence() {
         return findTolerence;
     }
-
-    public double getSimilarity(PatternLevelKey levelKey) {
-        double leafSimilarity = getLeafSimilarity(levelKey.getProjectName());
-        double similarity =  leafSimilarity * Math.pow(1-similarityDecayFactor, levelKey.getLevel());
-        double roundedSimilarity = CommonUtil.round(similarity, Constants.SIMILARITY_PRECISION);
-        return roundedSimilarity;
-    }
-
     public int getLeafCountMax(String projectName) {
         int leafCountMax;
         try {
@@ -102,11 +90,17 @@ public class PatternMetas {
             leafCountMax = Integer.parseInt(projectMetas.get(metaKey));
         } catch (Exception e) {
             leafCountMax = LEAF_COUNT_MAX_DEFAULT;
-            logger.warn("get leafCountMax for project " + projectName + " failed. use default Value" + leafCountMax);
+            logger.warn("get leafCountMax for project " + projectName + " failed. use default Value: " + leafCountMax);
         }
         return leafCountMax;
     }
 
+    public double getSimilarity(PatternLevelKey levelKey) {
+        double leafSimilarity = getLeafSimilarity(levelKey.getProjectName());
+        double similarity =  leafSimilarity * Math.pow(1-similarityDecayFactor, levelKey.getLevel());
+        double roundedSimilarity = CommonUtil.round(similarity, Constants.SIMILARITY_PRECISION);
+        return roundedSimilarity;
+    }
     public boolean stepUpLeafSimilarity(String projectName) {
         double oldSimilarity = getLeafSimilarity(projectName);
         double newSimilarity =  CommonUtil.round((oldSimilarity + leafSimilarityMax) / 2, Constants.SIMILARITY_PRECISION);
@@ -120,7 +114,6 @@ public class PatternMetas {
         publishSimilarityEvent(projectName);
         return true;
     }
-
     public boolean stepDownLeafSimilarity(String projectName) {
         double oldSimilarity = getLeafSimilarity(projectName);
         double newSimilarity = CommonUtil.round((oldSimilarity + leafSimilarityMin) / 2, Constants.SIMILARITY_PRECISION);
@@ -134,39 +127,6 @@ public class PatternMetas {
         publishSimilarityEvent(projectName);
         return true;
     }
-
-    private void synchronizeMetaFromRedis(String projectName, PatternMetaType type) {
-        String metaKey = getMetaKey(projectName, type);
-        String oldValue = projectMetas.get(metaKey);
-
-        String redisValue = redisUtil.getMetaData(projectName, type.getTypeString());
-        if (type == PatternMetaType.LEAF_SIMILARITY
-            && !StringUtils.equals(oldValue, redisValue)) {
-            publishSimilarityEvent(projectName);
-
-            //set local Value;
-            projectMetas.put(metaKey, redisValue);
-        }
-    }
-
-    private void publishSimilarityEvent(String projectName) {
-        SimilarityEvent event = new SimilarityEvent();
-        event.setProjectName(projectName);
-        eventBusInstance.publish(event);
-    }
-
-    private void setMetaToRedis(String projectName, PatternMetaType type) {
-        String metaKey = getMetaKey(projectName, type);
-        String value = projectMetas.get(metaKey);
-       redisUtil.setMetaData(projectName, type.getTypeString(), value);
-    }
-
-    private String getMetaKey(String projectName, PatternMetaType type) {
-        String metaKey = String.format("%s%s%s",
-                projectName, ":", type.getTypeString());
-        return metaKey;
-    }
-
     private double getLeafSimilarity(String projectName) {
         double leafSimilarity;
         try {
@@ -178,6 +138,56 @@ public class PatternMetas {
             logger.debug("get similarity for project " + projectName + " failed, use default: " + leafSimilarity);
         }
         return leafSimilarity;
+    }
+
+    public boolean isPatternNew(String projectName) {
+        boolean isNew;
+        try {
+            synchronizeMetaFromRedis(projectName, PatternMetaType.PATTERN_IS_NEW);
+            String metaKey = getMetaKey(projectName, PatternMetaType.PATTERN_IS_NEW);
+            isNew = Boolean.parseBoolean(projectMetas.get(metaKey));
+        } catch (Exception e) {
+            isNew = true;
+            logger.debug("get pattern new status for project " + projectName + " failed, use default: " + isNew);
+        }
+        return isNew;
+    }
+    public void setPatternNew(String projectName, boolean status) {
+        String metaKey = getMetaKey(projectName, PatternMetaType.PATTERN_IS_NEW);
+        projectMetas.put(metaKey, String.valueOf(status));
+        setMetaToRedis(projectName, PatternMetaType.PATTERN_IS_NEW);
+    }
+
+    private void synchronizeMetaFromRedis(String projectName, PatternMetaType type) {
+        String metaKey = getMetaKey(projectName, type);
+        String oldValue = projectMetas.get(metaKey);
+
+        String redisValue = redisUtil.getMetaData(projectName, type.getTypeString());
+        if (type == PatternMetaType.LEAF_SIMILARITY
+            && !StringUtils.equals(oldValue, redisValue)) {
+            publishSimilarityEvent(projectName);
+        } else {
+            ;
+        }
+        //set local Value;
+        projectMetas.put(metaKey, redisValue);
+    }
+    private void setMetaToRedis(String projectName, PatternMetaType type) {
+        String metaKey = getMetaKey(projectName, type);
+        String value = projectMetas.get(metaKey);
+        redisUtil.setMetaData(projectName, type.getTypeString(), value);
+    }
+
+    private void publishSimilarityEvent(String projectName) {
+        SimilarityEvent event = new SimilarityEvent();
+        event.setProjectName(projectName);
+        eventBusInstance.publish(event);
+    }
+
+    private String getMetaKey(String projectName, PatternMetaType type) {
+        String metaKey = String.format("%s%s%s",
+                projectName, ":", type.getTypeString());
+        return metaKey;
     }
 
     private void parseConfiguredGlobalMetas(Map conf) {

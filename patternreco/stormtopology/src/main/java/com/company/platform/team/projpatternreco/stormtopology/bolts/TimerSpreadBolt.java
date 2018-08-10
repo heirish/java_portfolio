@@ -44,7 +44,7 @@ public class TimerSpreadBolt implements IRichBolt{
                 }
             }
         } catch (Exception e) {
-            configMap.remove(e);
+            logger.error("Timer spread error.", e);
         }
         collector.ack(tuple);
     }

@@ -21,7 +21,6 @@ public final class PatternNodes {
             patternNodes = new ConcurrentHashMap<>();
     }
 
-
     public void addNode(PatternNodeKey nodeKey, PatternNode node ) {
         if (nodeKey != null) {
             if (patternNodes.containsKey(nodeKey.getLevelKey())) {
@@ -34,7 +33,6 @@ public final class PatternNodes {
             logger.debug("add node to PatternNodes, key:" + nodeKey.getLevelKey() + ", " + node.toString());
         }
     }
-
     public void addNodes(Map<PatternNodeKey, PatternNode> nodes) {
         if (nodes != null) {
             for (Map.Entry<PatternNodeKey, PatternNode> node : nodes.entrySet() ) {
@@ -54,7 +52,6 @@ public final class PatternNodes {
             }
         }
     }
-
     public void deleteLevelNodes(PatternLevelKey levelKey) {
         if (patternNodes.containsKey(levelKey)) {
             patternNodes.remove(levelKey);
@@ -66,7 +63,6 @@ public final class PatternNodes {
             logger.info("delete levelKey " + levelKey.toString() + "success.");
         }
     }
-
     public void deleteProjectNodes(String projectName) {
         if (!StringUtils.isEmpty(projectName)) {
             for (PatternLevelKey key : patternNodes.keySet()) {
@@ -102,7 +98,6 @@ public final class PatternNodes {
         }
         return patternNodes.get(nodeKey.getLevelKey()).get(nodeKey);
     }
-
     public Map<PatternNodeKey, PatternNode> getNodes(PatternLevelKey levelKey) {
         if (patternNodes.containsKey(levelKey)) {
             return patternNodes.get(levelKey);
@@ -121,21 +116,18 @@ public final class PatternNodes {
         }
         return null;
     }
-
     public Set<PatternNodeKey> getNodeKeys(PatternLevelKey levelKey) {
         if (patternNodes.containsKey(levelKey)) {
             return patternNodes.get(levelKey).keySet();
         }
         return null;
     }
-
     public int getLevelNodeSize(PatternLevelKey levelKey) {
         if (patternNodes.containsKey(levelKey)) {
             return patternNodes.get(levelKey).size();
         }
         return 0;
     }
-
     public Set<String> getAllProjectsName() {
         Set<String> projectList = new HashSet<>();
         for (PatternLevelKey key : patternNodes.keySet()) {
@@ -143,7 +135,6 @@ public final class PatternNodes {
         }
         return projectList;
     }
-
     private int getProjectMaxLevel(String name) {
         int maxLevel = -1;
         for (PatternLevelKey key: patternNodes.keySet()) {

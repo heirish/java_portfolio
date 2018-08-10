@@ -1,7 +1,7 @@
 {
   "mysql": {
     "url": "jdbc:mysql://localhost:3306/dbname",
-    "user": "",
+    "userName": "",
     "password": "",
     "pooled": true
   },
@@ -10,6 +10,14 @@
     "port": 11378,
     "maxTotal": 2000,
     "maxWaitMillis": 5000
+  },
+  "elasticsearch": {
+    "tribeMode": true,
+    "indexPrefix": "log-pattern",
+    "clusterName": "myes",
+    "hosts": "localhost",
+    "port": 9300,
+    "knownFailures": ["MapperParsingException", "UncategorizedExecutionException"]
   },
   "kafka": {
     "fetchMega": 64,

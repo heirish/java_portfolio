@@ -1,10 +1,9 @@
 package com.company.platform.team.projpatternreco.stormtopology.utils;
 
-import com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNode;
+import com.company.platform.team.projpatternreco.stormtopology.data.DBProjectPatternNode;
 import com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNodeMapper;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.datasource.unpooled.UnpooledDataSource;
-import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.mapping.Environment;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
@@ -15,7 +14,6 @@ import org.apache.ibatis.transaction.jdbc.JdbcTransactionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
 
@@ -53,17 +51,98 @@ public class MysqlUtil {
         return instance;
     }
 
-    public List<DBPatternNode> getProjectLeaves(String projectName) {
+    public int getProjectId(String projectName) {
+        int projectId = -1;
+        SqlSession session = sqlSessionFactory.openSession();
+        try {
+            DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+            projectId = mapper.selectProjectId(projectName);
+        } catch (Exception e) {
+            logger.error("get id for project "+ projectName + " failed.", e);
+        } finally {
+            session.close();
+        }
+        return projectId;
+    }
+
+    public boolean refreshProjectNodes(String projectName, List<DBProjectPatternNode> nodes)
+    {
+        SqlSession session = sqlSessionFactory.openSession();
+        boolean success = false;
+        if (projectName != null && nodes != null) {
+            try {
+                DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+                int projectId = mapper.selectProjectId(projectName);
+                if (projectId >= 0) {
+                    mapper.deleteProjectNodes(projectId);
+                    mapper.insertProjectNodes(nodes);
+                    session.commit();
+                    success = true;
+                } else {
+                    logger.error("invalid projectId: " + projectId);
+                }
+            } catch (Exception e) {
+                session.rollback();
+                logger.error("refresh nodes for project: " + projectName + " failed.", e);
+            } finally {
+                session.close();
+            }
+        } else {
+            logger.warn("projectName or nodes is null.");
+        }
+        return success;
+    }
+
+    public int insertNodes(List<DBProjectPatternNode> nodes) {
+        SqlSession session = sqlSessionFactory.openSession();
+        int successRows = -1;
+        if (nodes != null) {
+            try {
+                DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+                successRows = mapper.insertProjectNodes(nodes);
+                session.commit();
+            } catch (Exception e) {
+                successRows = -1;
+                session.rollback();
+                logger.error("insert nodes failed.", e);
+            } finally {
+                session.close();
+            }
+        } else {
+            logger.warn("nodes is null.");
+        }
+        return successRows;
+    }
+
+    public List<DBProjectPatternNode> getProjectLeaves(String projectName) {
        SqlSession session = sqlSessionFactory.openSession();
+       List<DBProjectPatternNode> nodes = null;
        try {
            DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
-           return mapper.selectProjectLeaves(projectName);
+           nodes = mapper.selectProjectLeaves(projectName);
        } catch (Exception e) {
-           logger.error("get leaves for project: " + projectName + "failed.", e);
+           logger.error("get leaves for project: " + projectName + " failed.", e);
         } finally {
            session.close();
        }
-       return null;
+       return nodes;
+    }
+
+    public int updateParentNode(DBProjectPatternNode node) {
+        SqlSession session = sqlSessionFactory.openSession();
+        int successRows = -1;
+        try {
+            DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+            successRows = mapper.updateParentNode(node.getProjectId(), node.getPatternLevel(), node.getPatternKey(), node.getParentKey());
+            session.commit();
+        } catch (Exception e) {
+            successRows = -1;
+            session.rollback();
+            logger.error("update node failed.", e);
+        } finally {
+            session.close();
+        }
+        return successRows;
     }
 
     private Configuration getConfiguration(String url, String userName, String password, boolean pooled) {

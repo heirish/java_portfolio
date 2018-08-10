@@ -17,6 +17,7 @@
         <kafka.version>0.11.0.0</kafka.version>
         <jedis.version>2.9.0</jedis.version>
         <mysql.version>8.0.11</mysql.version>
+        <elasticsearch.version>5.6.4</elasticsearch.version>
     </properties>
 
     <dependencies>
@@ -127,6 +128,16 @@
             <groupId>org.mybatis</groupId>
             <artifactId>mybatis</artifactId>
             <version>3.4.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch</groupId>
+            <artifactId>elasticsearch</artifactId>
+            <version>${elasticsearch.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>transport</artifactId>
+            <version>${elasticsearch.version}</version>
         </dependency>
     </dependencies>
 </project>

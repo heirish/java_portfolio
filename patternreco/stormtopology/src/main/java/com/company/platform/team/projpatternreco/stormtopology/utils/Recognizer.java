@@ -6,13 +6,16 @@ import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
 import com.company.platform.team.projpatternreco.common.modules.FastClustering;
 import com.company.platform.team.projpatternreco.common.preprocess.Preprocessor;
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.data.DBProjectPatternNode;
 import com.company.platform.team.projpatternreco.stormtopology.data.PatternMetas;
 import com.company.platform.team.projpatternreco.stormtopology.data.PatternNodes;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventListener;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventType;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.MetaEvent;
 import com.company.platform.team.projpatternreco.stormtopology.eventbus.SimilarityEvent;
+import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +31,7 @@ public final class Recognizer implements IEventListener{
     private PatternNodes localPatternNodes;
     private PatternMetas localPatternMetas;
     private RedisUtil nodeCenter;
+    private MysqlUtil mysqlUtil;
 
     private static Recognizer instance = null;
 
@@ -42,11 +46,19 @@ public final class Recognizer implements IEventListener{
         localPatternNodes = new PatternNodes();
 
         Map redisConf = (Map)conf.get(Constants.CONFIGURE_REDIS_SECTION);
-        if (conf != null) {
+        if (redisConf != null) {
             nodeCenter = RedisUtil.getInstance(redisConf);
             logger.info("node center is enabled.");
         } else {
             logger.warn("there is no node center, all the nodes will be cached local.");
+        }
+
+        Map mysqlConf = (Map)conf.get(Constants.CONFIGURE_MYSQL_SECTION);
+        if (mysqlConf != null) {
+            mysqlUtil = MysqlUtil.getInstance(mysqlConf);
+            logger.info("get mysql instance succeed.");
+        } else {
+            logger.warn("get mysql instance failed.");
         }
 
         //TODO: get maxleafCount from DB and set to conf for localPatternMetas
@@ -75,108 +87,6 @@ public final class Recognizer implements IEventListener{
         PatternNodeKey nodeKey = getParentNodeId(levelKey,bodyTokens);
         return Pair.of(nodeKey, bodyTokens);
     }
-
-    public Set<String> getAllProjects() {
-        return nodeCenter.getAllProjects();
-    }
-
-    public void limitLeafCapacity(String projectName) {
-        int leafLimit = localPatternMetas.getLeafCountMax(projectName);
-        //can not use local, because can not make it's in same worker as project's appender;
-        long leafNodeSize = nodeCenter.getLevelNodeSize(new PatternLevelKey(projectName, 0));
-        if (leafNodeSize > leafLimit && localPatternMetas.stepDownLeafSimilarity(projectName)) {
-            //delete local and nodeCenter
-            localPatternNodes.deleteProjectNodes(projectName);
-            nodeCenter.deleteProjectNodes(projectName);
-            //TODO:mask this project's tree as new, set a node's id to -1 for mask usage
-        }
-    }
-
-    public void mergeTokenToNode(PatternNodeKey nodeKey, List<String> tokens)
-            throws PatternRecognizeException{
-
-        PatternNodeKey currentNodeKey = nodeKey;
-        List<String> currentTokens = tokens;
-        //merge i-1, add i
-        int levelMax = localPatternMetas.getPatternLevelMax();
-        for (int i = nodeKey.getLevel(); i < levelMax + 1; i++) {
-            //to test
-            logger.info("merge level i " + i + "for key: " + nodeKey.toString() + ", tokens:" + Arrays.toString(tokens.toArray()));
-            boolean isLastLevel = (i == levelMax) ? true : false;
-            Pair<PatternNodeKey, List<String>> nextLevelTuple = updateNodeWithTokens(currentNodeKey, currentTokens, isLastLevel);
-            if (nextLevelTuple == null) {
-                break;
-            }
-            currentNodeKey = nextLevelTuple.getLeft();
-            currentTokens = nextLevelTuple.getRight();
-        }
-    }
-
-    public Pair<PatternNodeKey, List<String>> updateNodeWithTokens(PatternNodeKey key,
-                                                                 List<String> patternTokens,
-                                                                 boolean isLastLevel)
-            throws PatternRecognizeException{
-
-        assert key!=null && patternTokens!=null: "key or patternTokens is null";
-
-        PatternNode parentNode = localPatternNodes.getNode(key);
-        if (parentNode == null) {
-            parentNode = nodeCenter.getNode(key);
-        }
-
-        if (parentNode == null) {
-            //add Leaf if nodeKeys's level is  0
-            //pattern might get lost when rebuld tree.
-            //if (key.getLevel() == 0) {
-            //    parentNode = new PatternNode(patternTokens);
-            //} else {
-                logger.error("can not find node for key: " + key.toString());
-                return null;
-            //}
-        }
-
-        try {
-            List<String> mergedTokens = Aligner.retrievePattern(parentNode.getPatternTokens(), patternTokens);
-            PatternLevelKey levelKey = new PatternLevelKey(key.getProjectName(), key.getLevel()+1);
-            boolean grandNodeAdded = false;
-            if (isLastLevel) {
-                logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
-            }
-            if (!parentNode.hasParent() && !isLastLevel) {
-                List<String> representTokens = parentNode.getRepresentTokens();
-                PatternNodeKey grandNodeKey = getParentNodeId(levelKey, representTokens);
-                if (grandNodeKey == null) {
-                    PatternNode grandNode = new PatternNode(representTokens);
-                    grandNode.updatePatternTokens(parentNode.getPatternTokens());
-                    grandNodeKey = addNode(levelKey, grandNode);
-                }
-                if (grandNodeKey != null) {
-                    parentNode.setParent(grandNodeKey);
-                    grandNodeAdded = true;
-                } else {
-                    logger.error("set parent for node: " + key.toString() + "failed.");
-                }
-            }
-
-            boolean parentNodeUpdated = false;
-            if (grandNodeAdded || !mergedTokens.equals(parentNode.getPatternTokens())) {
-                parentNode.updatePatternTokens(mergedTokens);
-                updateNode(key, parentNode);
-                parentNodeUpdated = true;
-            }
-
-            if (parentNodeUpdated && parentNode.hasParent()) {
-                return Pair.of(parentNode.getParentId(), mergedTokens);
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to merge tokens to it's parent pattern.", e);
-            throw new PatternRecognizeException("Failed to merge tokens to it's parent pattern." + e.getMessage());
-        }
-
-        logger.info("No need to update node [" + key.toString() + "] pattern.");
-        return null;
-    }
-
     public PatternNodeKey getParentNodeId(PatternLevelKey levelKey, List<String> tokens ) {
         assert tokens!=null && levelKey !=null : "tokens or levelKey is null.";
 
@@ -220,6 +130,111 @@ public final class Recognizer implements IEventListener{
         logger.debug("Already retried " + retryTolerence + " times, still can't find parent id for given tokens.");
         return null;
     }
+    private PatternNodeKey findNodeIdFromNodes(List<String> tokens,
+                                               Map<PatternNodeKey, PatternNode> levelNodes,
+                                               double maxDistance) {
+        if (levelNodes != null) {
+            for (Map.Entry<PatternNodeKey, PatternNode> node: levelNodes.entrySet()) {
+                if (FastClustering.belongsToCluster(tokens, node.getValue().getRepresentTokens(), maxDistance)) {
+                    logger.info("found parent Node for tokens: " + tokens + ", parent tokens: " + node.getValue().getRepresentTokens()
+                            + ", maxDistance: " + maxDistance);
+                    return node.getKey();
+                }
+            }
+        }
+        return null;
+    }
+
+    public void mergeTokenToNode(PatternNodeKey nodeKey, List<String> tokens)
+            throws PatternRecognizeException{
+
+        PatternNodeKey currentNodeKey = nodeKey;
+        List<String> currentTokens = tokens;
+        //merge i-1, add i
+        int levelMax = localPatternMetas.getPatternLevelMax();
+        for (int i = nodeKey.getLevel(); i < levelMax + 1; i++) {
+            //to test
+            logger.info("merge level i " + i + "for key: " + nodeKey.toString() + ", tokens:" + Arrays.toString(tokens.toArray()));
+            boolean isLastLevel = (i == levelMax) ? true : false;
+            Pair<PatternNodeKey, List<String>> nextLevelTuple = updateNodeWithTokens(currentNodeKey, currentTokens, isLastLevel);
+            if (nextLevelTuple == null) {
+                break;
+            }
+            currentNodeKey = nextLevelTuple.getLeft();
+            currentTokens = nextLevelTuple.getRight();
+        }
+    }
+    private Pair<PatternNodeKey, List<String>> updateNodeWithTokens(PatternNodeKey key,
+                                                                 List<String> patternTokens,
+                                                                 boolean isLastLevel)
+            throws PatternRecognizeException{
+
+        assert key!=null && patternTokens!=null: "key or patternTokens is null";
+
+        PatternNode parentNode = localPatternNodes.getNode(key);
+        if (parentNode == null) {
+            parentNode = nodeCenter.getNode(key);
+        }
+
+        if (parentNode == null) {
+            //add Leaf if nodeKeys's level is  0
+            //pattern might get lost when rebuld tree.
+            //if (key.getLevel() == 0) {
+            //    parentNode = new PatternNode(patternTokens);
+            //} else {
+                logger.error("can not find node for key: " + key.toString());
+                return null;
+            //}
+        }
+
+        try {
+            List<String> mergedTokens = Aligner.retrievePattern(parentNode.getPatternTokens(), patternTokens);
+            //for test
+            if (key.getLevel() == 0 && Aligner.onlyWildcatsOrEmpty(mergedTokens)) {
+                throw new Exception("too general tokens: " + mergedTokens + ", level: " + key.getLevel() + ", similarity: " +
+                        localPatternMetas.getSimilarity(key.getLevelKey()) + ",node pattern: " + parentNode.getPatternTokens()
+                        + ", patternTokens: " + patternTokens);
+            }
+            logger.info("mergedTokens: " + Arrays.toString(mergedTokens.toArray()));
+            PatternLevelKey levelKey = new PatternLevelKey(key.getProjectName(), key.getLevel()+1);
+            boolean grandNodeAdded = false;
+            if (isLastLevel) {
+                logger.debug("this is the last level of pattern, only merge, will not add parent node for node: " + key.toString());
+            }
+            if (!parentNode.hasParent() && !isLastLevel) {
+                List<String> representTokens = parentNode.getRepresentTokens();
+                PatternNodeKey grandNodeKey = getParentNodeId(levelKey, representTokens);
+                if (grandNodeKey == null) {
+                    PatternNode grandNode = new PatternNode(representTokens);
+                    grandNode.updatePatternTokens(parentNode.getPatternTokens());
+                    grandNodeKey = addNode(levelKey, grandNode);
+                }
+                if (grandNodeKey != null) {
+                    parentNode.setParent(grandNodeKey);
+                    grandNodeAdded = true;
+                } else {
+                    logger.error("set parent for node: " + key.toString() + "failed.");
+                }
+            }
+
+            boolean parentNodeUpdated = false;
+            if (grandNodeAdded || !mergedTokens.equals(parentNode.getPatternTokens())) {
+                parentNode.updatePatternTokens(mergedTokens);
+                updateNode(key, parentNode);
+                parentNodeUpdated = true;
+            }
+
+            if (parentNodeUpdated && parentNode.hasParent()) {
+                return Pair.of(parentNode.getParentId(), mergedTokens);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to merge tokens to it's parent pattern.", e);
+            throw new PatternRecognizeException("Failed to merge tokens to it's parent pattern." + e.getMessage());
+        }
+
+        logger.info("No need to update node [" + key.toString() + "] pattern.");
+        return null;
+    }
 
     public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
         synchronizeNodesFromCenter(levelKey);
@@ -233,6 +248,86 @@ public final class Recognizer implements IEventListener{
         return nodeKey;
     }
 
+    public Set<String> getAllProjects() {
+        return nodeCenter.getAllProjects();
+    }
+
+    public void limitLeafCapacity(String projectName) {
+        int leafLimit = localPatternMetas.getLeafCountMax(projectName);
+        //can not use local, because can not make it's in same worker as project's appender;
+        long leafNodeSize = nodeCenter.getLevelNodeSize(new PatternLevelKey(projectName, 0));
+        if (leafNodeSize > leafLimit && localPatternMetas.stepDownLeafSimilarity(projectName)) {
+            //delete local and nodeCenter
+            localPatternNodes.deleteProjectNodes(projectName);
+            nodeCenter.deleteProjectNodes(projectName);
+            localPatternMetas.setPatternNew(projectName, true);
+        }
+    }
+    public boolean flushNodesFromRedisToMysql(String projectName) {
+        boolean success = false;
+        if (!StringUtils.isEmpty(projectName)) {
+            Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
+            //only flush from level 1, level 0 will be processed in relink
+            for(int i=1; i<localPatternMetas.getPatternLevelMax()+1; i++) {
+                Map<PatternNodeKey, PatternNode> levelNodes = nodeCenter.getLevelNewNodes(null, new PatternLevelKey(projectName, i));
+                if (levelNodes != null && levelNodes.size() > 0) {
+                    nodes.putAll(levelNodes);
+                }
+            }
+            int projectId = mysqlUtil.getProjectId(projectName);
+            if (projectId > 0) {
+                List<DBProjectPatternNode> DBNodes = CommonUtil.formatDBPatternNodes(nodes, projectId);
+                if (DBNodes != null && DBNodes.size() > 0) {
+                    mysqlUtil.refreshProjectNodes(projectName, DBNodes);
+                }
+                success = true;
+            } else {
+                logger.error("invalid projectId " + projectName + " for project " + projectName);
+            }
+        }
+        return success;
+    }
+    public void relinkProjectLeaves(String projectName) {
+        if (!StringUtils.isEmpty(projectName)) {
+            List<DBProjectPatternNode> dbNodes = mysqlUtil.getProjectLeaves(projectName);
+            if (dbNodes != null) {
+                int projectId = mysqlUtil.getProjectId(projectName);
+                if (projectId > 0) {
+                    Map<PatternNodeKey, PatternNode> patternNodes = CommonUtil.formatPatternNode(dbNodes, projectName);
+                    Map<PatternNodeKey, PatternNode> redisPatternNodes = nodeCenter.getLevelNewNodes(null,
+                            new PatternLevelKey(projectName, 0));
+
+                    //insert new Nodes
+                    MapDifference<PatternNodeKey, PatternNode> nodeMapDifference = Maps.difference(patternNodes, redisPatternNodes);
+                    List<DBProjectPatternNode> insertNodes = CommonUtil.formatDBPatternNodes(nodeMapDifference.entriesOnlyOnRight(), projectId);
+                    if (mysqlUtil.insertNodes(insertNodes) > 0) {
+                        logger.info("insert new leaves to mysql success.");
+                    } else {
+                        logger.error("insert new leaves to mysql failed.");
+                    }
+
+                    //if this is a new tree, relink level 0, and then set it to old tree.
+                    if (localPatternMetas.isPatternNew(projectName)) {
+                        for(Map.Entry<PatternNodeKey, PatternNode> entry : nodeMapDifference.entriesOnlyOnLeft().entrySet()) {
+                            PatternNodeKey newParentKey = getParentNodeId(entry.getKey().getLevelKey(), entry.getValue().getRepresentTokens());
+                            if (newParentKey != null) {
+                                DBProjectPatternNode dbNode = new DBProjectPatternNode();
+                                dbNode.setProjectId(projectId);
+                                dbNode.setPatternLevel(entry.getKey().getLevel());
+                                dbNode.setPatternKey(entry.getKey().getId());
+                                dbNode.setParentKey(newParentKey.getId());
+                                dbNode.setPattern(String.join("", entry.getValue().getPatternTokens()));
+                                dbNode.setReresentTokens(entry.getValue().getRepresentTokens());
+                                mysqlUtil.updateParentNode(dbNode);
+                            }
+                        }
+                        localPatternMetas.setPatternNew(projectName, false);
+                    }
+                }
+            }
+        }
+    }
+
     private void updateNode(PatternNodeKey nodeKey, PatternNode node) {
         if (nodeCenter.updateNode(nodeKey, node)) {
             localPatternNodes.updateNode(nodeKey, node);
@@ -240,20 +335,6 @@ public final class Recognizer implements IEventListener{
             logger.error("update node: " + nodeKey + "failed.");
         }
     }
-
-    private PatternNodeKey findNodeIdFromNodes(List<String> tokens,
-                                                      Map<PatternNodeKey, PatternNode> levelNodes,
-                                                      double maxDistance) {
-        if (levelNodes != null) {
-            for (Map.Entry<PatternNodeKey, PatternNode> node: levelNodes.entrySet()) {
-                if (FastClustering.belongsToCluster(tokens, node.getValue().getRepresentTokens(), maxDistance)) {
-                    return node.getKey();
-                }
-            }
-        }
-        return null;
-    }
-
     private void synchronizeNodesFromCenter(PatternLevelKey levelKey) {
         Set<PatternNodeKey> localNodeKeys = localPatternNodes.getNodeKeys(levelKey);
         Map<PatternNodeKey, PatternNode> newNodesFromCenter = nodeCenter.getLevelNewNodes(localNodeKeys, levelKey);
@@ -270,7 +351,7 @@ public final class Recognizer implements IEventListener{
         if (event instanceof SimilarityEvent) {
             String projectName = ((SimilarityEvent)event).getProjectName();
             localPatternNodes.deleteProjectNodes(projectName);
-        } else if (event instanceof MetaEvent) { // decay factor change
+        } else if (event instanceof MetaEvent) { // other meta change
         }
     }
 }

@@ -14,13 +14,13 @@ public class Constants {
     public static final String FIELD_BODY = "body";
     public static final String FIELD_LEAFID = "leafId";
     public static final String FIELD_PATTERNID = "@patternId";
-    public static final String FIELD_REPRESENTTOKENS = "@representTokens";
     public static final String FIELD_PATTERNTOKENS = "@patternTokens";
     public static final String FIELD_META_TYPE = "@metaType";
 
     //patternreco
     public static final String CONFIGURE_PATTERNRECO_SECTION = "patternreco";
     public static final String CONFIGURE_REDIS_SECTION = "redis";
+    public static final String CONFIGURE_MYSQL_SECTION = "mysql";
     public static final long LEAF_PATTERN_CACHE_SECONDS_DEFAULT = 10;
     public static final long LEAF_PATTERN_CACHE_MAX_DEFAULT = 200;
     public static final String IDENTIFY_EXCEEDED_TYPE = "NELO_ELIMINATED";

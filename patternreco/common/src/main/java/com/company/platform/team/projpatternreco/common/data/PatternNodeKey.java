@@ -76,6 +76,10 @@ public final class PatternNodeKey implements Comparable<PatternNodeKey>{
         return this.levelKey;
     }
 
+    public String getId() {
+        return this.id;
+    }
+
     public String toString() {
         return String.format("%s%s%s",
                 this.levelKey.toString(), DELIMITER, this.id);

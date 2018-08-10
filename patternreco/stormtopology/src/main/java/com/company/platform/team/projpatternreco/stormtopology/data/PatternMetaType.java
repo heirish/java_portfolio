@@ -12,7 +12,8 @@ public enum PatternMetaType {
     FIND_TOLERANCE("findTolerance"),
     BODY_LENGTH_MAX("bodyLengthMax"),
     TOKEN_COUNT_MAX("tokenCountMax"),
-    PATTERN_LEVEL_MAX("patternLevelMax");
+    PATTERN_LEVEL_MAX("patternLevelMax"),
+    PATTERN_IS_NEW("patternIsNew");
 
     private String typeString;
 

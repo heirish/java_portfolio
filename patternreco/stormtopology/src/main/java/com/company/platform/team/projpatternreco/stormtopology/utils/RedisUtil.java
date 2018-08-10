@@ -55,6 +55,60 @@ public class RedisUtil {
        return nodeCenter;
     }
 
+    public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
+        PatternNodeKey nodeKey = new PatternNodeKey(levelKey);
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeValue = node.toJson();
+
+        setHashFieldValue(redisLevelKey, redisNodeKey, redisNodeValue);
+        return nodeKey;
+    }
+
+    public void deleteProjectNodes(String projectName) {
+        String keyPattern = REDIS_KEY_PATTERN_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
+        Set<String> keySets = scanKeysByPattern(keyPattern);
+
+        Jedis redis = jedisPool.getResource();
+        try {
+            for (String key: keySets) {
+                redis.del(key);
+            }
+        } catch (Exception e) {
+            logger.error("delete project nodes error.", e);
+        } finally {
+            if (redis != null) {
+                redis.close();
+            }
+        }
+        logger.info("delete " + keySets.size() + " keys for project " + projectName);
+    }
+
+    public boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeValue = node.toJson();
+
+        setHashFieldValue(redisLevelKey, redisNodeKey, redisNodeValue);
+        return true;
+    }
+
+    public PatternNode getNode(PatternNodeKey nodeKey) {
+        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
+        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
+
+        PatternNode node = null;
+        try {
+            String result = getHashFieldValue(redisLevelKey, redisNodeKey);
+            if (result != null) {
+                node = PatternNode.fromJson(result);
+            }
+        } catch (Exception e) {
+            logger.error("get node: " + redisNodeKey + " from redis error", e);
+        }
+
+        return node;
+    }
     public Map<PatternNodeKey, PatternNode> getLevelNewNodes(Set<PatternNodeKey> localNodeKeys, PatternLevelKey levelKey) {
         Map<String, String> result = new HashMap<>();
         Map<PatternNodeKey, PatternNode> nodes = new HashMap<>();
@@ -101,43 +155,6 @@ public class RedisUtil {
         }
         return nodes;
     }
-
-    public PatternNodeKey addNode(PatternLevelKey levelKey, PatternNode node) {
-        PatternNodeKey nodeKey = new PatternNodeKey(levelKey);
-        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeValue = node.toJson();
-
-        setHashFieldValue(redisLevelKey, redisNodeKey, redisNodeValue);
-        return nodeKey;
-    }
-
-    public PatternNode getNode(PatternNodeKey nodeKey) {
-        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
-
-        PatternNode node = null;
-        try {
-            String result = getHashFieldValue(redisLevelKey, redisNodeKey);
-            if (result != null) {
-                node = PatternNode.fromJson(result);
-            }
-        } catch (Exception e) {
-            logger.error("get node: " + redisNodeKey + " from redis error", e);
-        }
-
-        return node;
-    }
-
-    public boolean updateNode(PatternNodeKey nodeKey, PatternNode node) {
-        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeValue = node.toJson();
-
-        setHashFieldValue(redisLevelKey, redisNodeKey, redisNodeValue);
-        return true;
-    }
-
     public Set<String> getAllProjects() {
         Set<String> projects = new HashSet<>();
         String keyPattern = REDIS_KEY_PATTERN_PREFIX + "*";
@@ -154,12 +171,11 @@ public class RedisUtil {
 
         return projects;
     }
-
     public long getLevelNodeSize(PatternLevelKey levelKey) {
         String redisKey =  REDIS_KEY_PATTERN_PREFIX + levelKey.toDelimitedString(REDIS_KEY_DELIMITER);
         Jedis redis = jedisPool.getResource();
         try {
-           return redis.hlen(redisKey);
+            return redis.hlen(redisKey);
         } catch (Exception e) {
             logger.error("Get level " + levelKey.toString() + "'s length error", e);
         } finally {
@@ -168,25 +184,6 @@ public class RedisUtil {
             }
         }
         return -1;
-    }
-
-    public void deleteProjectNodes(String projectName) {
-        String keyPattern = REDIS_KEY_PATTERN_PREFIX + projectName + REDIS_KEY_DELIMITER + "*";
-        Set<String> keySets = scanKeysByPattern(keyPattern);
-
-        Jedis redis = jedisPool.getResource();
-        try {
-            for (String key: keySets) {
-                redis.del(key);
-            }
-        } catch (Exception e) {
-            logger.error("delete project nodes error.", e);
-        } finally {
-            if (redis != null) {
-                redis.close();
-            }
-        }
-        logger.info("delete " + keySets.size() + " keys for project " + projectName);
     }
 
     public String getMetaData(String projectName, String metaString) {
@@ -204,7 +201,6 @@ public class RedisUtil {
         }
         return null;
     }
-
     public void setMetaData(String projectName, String metaString, String value) {
         String key = REDIS_KEY_META_PREFIX + projectName + REDIS_KEY_DELIMITER + metaString;
 
@@ -244,13 +240,6 @@ public class RedisUtil {
         return keySets;
     }
 
-    private boolean existNode(PatternNodeKey nodeKey) {
-        String redisLevelKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.getLevelKey().toDelimitedString(REDIS_KEY_DELIMITER);
-        String redisNodeKey = REDIS_KEY_PATTERN_PREFIX + nodeKey.toDelimitedString(REDIS_KEY_DELIMITER);
-        String result = getHashFieldValue(redisLevelKey, redisNodeKey);
-        return !StringUtils.isEmpty(result);
-    }
-
     private void setHashFieldValue(String hashKey, String hashField, String value) {
         Jedis redis = jedisPool.getResource();
         try {
@@ -265,7 +254,6 @@ public class RedisUtil {
             }
         }
     }
-
     private String getHashFieldValue(String hashKey, String hashField) {
         Jedis redis = jedisPool.getResource();
         String result = null;
@@ -280,7 +268,6 @@ public class RedisUtil {
         }
         return result;
     }
-
     private void deleteHashKey(String hashKey) {
         Jedis redis = jedisPool.getResource();
         try {

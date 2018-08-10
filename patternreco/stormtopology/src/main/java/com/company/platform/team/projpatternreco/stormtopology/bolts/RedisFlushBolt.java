@@ -30,10 +30,8 @@ public class RedisFlushBolt implements IRichBolt{
         try {
             String projectName= tuple.getString(0);
             Recognizer recognizer = Recognizer.getInstance(configMap);
-            //TODO: Flush redis to DB
-            //delete DB level 1-10
-            //flush all level 1-10, transaction?
-            // if this is a new tree, relink level 0, and then set it to old tree.
+            recognizer.flushNodesFromRedisToMysql(projectName);
+            recognizer.relinkProjectLeaves(projectName);
             recognizer.limitLeafCapacity(projectName);
         } catch (Exception e) {
             collector.reportError(e);
