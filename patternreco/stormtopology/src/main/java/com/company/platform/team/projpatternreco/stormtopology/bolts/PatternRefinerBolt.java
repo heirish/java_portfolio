@@ -29,7 +29,7 @@ public class PatternRefinerBolt implements IRichBolt {
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
         this.configMap = map;
-        this.replayTuple = false; // for node not found, will never find it.
+        this.replayTuple = CommonUtil.replayFailedTuple(map);
 
         lastBackupTime = 0;
         backupInterval = 10 * 60 * 1000;

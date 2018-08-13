@@ -4,6 +4,7 @@ package com.company.platform.team.projpatternreco.stormtopology.data;
  * Created by admin on 2018/7/31.
  */
 public enum PatternMetaType {
+    PROJECT_ID("projectId"),
     LEAF_SIMILARITY("leafSimilarity"),
     LEAF_SIMILARITY_MIN("leafSimilarityMin"),
     LEAF_SIMILARITY_MAX("leafSimilarityMax"),
@@ -34,5 +35,4 @@ public enum PatternMetaType {
         }
         throw new IllegalArgumentException("No meta type with text " + text + " found");
     }
-
 }

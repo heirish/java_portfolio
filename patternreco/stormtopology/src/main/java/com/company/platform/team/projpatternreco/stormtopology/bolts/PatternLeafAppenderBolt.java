@@ -20,14 +20,15 @@ import java.util.*;
  */
 public class PatternLeafAppenderBolt implements IRichBolt {
     private OutputCollector collector;
-    private Map configMap;
+
+    private Recognizer recognizer;
     private boolean replayTuple;
 
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.configMap = map;
-        this.replayTuple = true;
+        this.recognizer = Recognizer.getInstance(map);
+        this.replayTuple = CommonUtil.replayFailedTuple(map);
     }
 
     @Override
@@ -39,7 +40,6 @@ public class PatternLeafAppenderBolt implements IRichBolt {
             String bodyTokenString = logMap.get(Constants.FIELD_PATTERNTOKENS);
             List<String> tokens = Arrays.asList(bodyTokenString.split(Constants.PATTERN_TOKENS_DELIMITER));
 
-            Recognizer recognizer = Recognizer.getInstance(configMap);
             PatternLevelKey levelKey = new PatternLevelKey(projectName, 0);
             PatternNode node = new PatternNode(tokens);
             PatternNodeKey nodeKey = recognizer.addNode(levelKey, node);

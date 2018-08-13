@@ -18,6 +18,7 @@ public class Constants {
     public static final String FIELD_META_TYPE = "@metaType";
 
     //patternreco
+    public static final String CONFIGURE_TOPOLOGY_SECTION = "topology";
     public static final String CONFIGURE_PATTERNRECO_SECTION = "patternreco";
     public static final String CONFIGURE_REDIS_SECTION = "redis";
     public static final String CONFIGURE_MYSQL_SECTION = "mysql";

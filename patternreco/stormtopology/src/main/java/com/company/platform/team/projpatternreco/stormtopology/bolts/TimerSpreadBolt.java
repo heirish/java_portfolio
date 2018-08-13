@@ -2,6 +2,7 @@ package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
+import com.company.platform.team.projpatternreco.stormtopology.utils.RedisUtil;
 import org.apache.commons.lang.StringUtils;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
@@ -36,8 +37,8 @@ public class TimerSpreadBolt implements IRichBolt{
             String message = tuple.getString(0);
             //spread by projectName
             if (StringUtils.equals(message, "redisFlush")) {
-                Recognizer recognizer = Recognizer.getInstance(configMap);
-                Set<String> projects = recognizer.getAllProjects();
+                RedisUtil redisUtil = RedisUtil.getInstance((Map)configMap.get(Constants.CONFIGURE_REDIS_SECTION));
+                Set<String> projects = redisUtil.getAllProjects();
                 for (String projectName : projects) {
                     logger.info("project: " + projectName + " emited.");
                     collector.emit(Constants.REDIS_FLUSH_STREAMID, new Values(projectName));

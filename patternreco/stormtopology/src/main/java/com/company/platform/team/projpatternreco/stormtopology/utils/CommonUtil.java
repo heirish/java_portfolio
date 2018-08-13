@@ -38,27 +38,25 @@ public class CommonUtil {
         if (nodes != null && nodes.size() > 0) {
             List<DBProjectPatternNode> DBNodes = new ArrayList<>();
             for (Map.Entry<PatternNodeKey, PatternNode> node : nodes.entrySet()) {
-                DBProjectPatternNode DBNode = new DBProjectPatternNode();
-                DBNode.setProjectId(projectID);
-                DBNode.setPatternLevel(node.getKey().getLevel());
-                DBNode.setPatternKey(node.getKey().getId());
-                if (node.getValue().hasParent()) {
-                    PatternNodeKey parent = node.getValue().getParentId();
+                PatternNodeKey nodeKey = node.getKey();
+                PatternNode patternNode = node.getValue();
+                DBProjectPatternNode DBNode = new DBProjectPatternNode(projectID, nodeKey.getLevel(), nodeKey.getId());
+                if (patternNode.hasParent()) {
+                    PatternNodeKey parent = patternNode.getParentId();
                     DBNode.setParentKey(parent.getId());
                 } else {
                     DBNode.setParentKey("");
                 }
-                DBNode.setPattern(String.join("", node.getValue().getPatternTokens()));
-                DBNode.setReresentTokens(node.getValue().getRepresentTokens());
+                DBNode.setPatternTokens(patternNode.getPatternTokens());
+                DBNode.setReresentTokens(patternNode.getRepresentTokens());
                 DBNodes.add(DBNode);
             }
             return DBNodes;
         }
         return null;
     }
-
     public static Map<PatternNodeKey, PatternNode> formatPatternNode(List<DBProjectPatternNode> nodes, String projectName) {
-        if (nodes != null && !org.apache.commons.lang3.StringUtils.isEmpty(projectName)) {
+        if (nodes != null && !StringUtils.isEmpty(projectName)) {
             Map<PatternNodeKey, PatternNode> patternNodes = new HashMap<>();
             for (DBProjectPatternNode node : nodes) {
                 try {
@@ -75,5 +73,17 @@ public class CommonUtil {
             return patternNodes;
         }
         return null;
+    }
+
+    public static boolean replayFailedTuple(Map conf) {
+        boolean replayTuple;
+        try {
+            replayTuple = Boolean.parseBoolean(
+                    ((Map)conf.get(Constants.CONFIGURE_TOPOLOGY_SECTION)).get("replayFailedTuple").toString());
+        } catch (Exception e) {
+            replayTuple = false;
+            logger.error("get replay failed tuple from conf failed, use default value: " + replayTuple);
+        }
+        return replayTuple;
     }
 }

@@ -2,6 +2,7 @@ package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
+import com.company.platform.team.projpatternreco.stormtopology.utils.CommonUtil;
 import com.company.platform.team.projpatternreco.stormtopology.utils.GsonFactory;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
 import org.apache.commons.lang3.StringUtils;
@@ -21,15 +22,15 @@ import java.util.*;
  */
 public class PatternLeafFinderBolt implements IRichBolt {
     private OutputCollector collector;
-    private Map configMap;
+    private Recognizer recognizer;
 
     private boolean replayTuple;
 
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        this.configMap = map;
-        this.replayTuple = true;
+        this.recognizer = Recognizer.getInstance(map);
+        this.replayTuple = CommonUtil.replayFailedTuple(map);
     }
 
     @Override
@@ -40,7 +41,6 @@ public class PatternLeafFinderBolt implements IRichBolt {
             String projectName = logMap.get(Constants.FIELD_PROJECTNAME);
             String body = logMap.get(Constants.FIELD_BODY);
             if (!StringUtils.isBlank(body)) {
-                Recognizer recognizer = Recognizer.getInstance(configMap);
                 Pair<PatternNodeKey, List<String>> result = recognizer.getLeafNodeId(projectName, body);
 
                 PatternNodeKey nodeKey = result.getLeft();

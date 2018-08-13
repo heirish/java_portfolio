@@ -3,6 +3,7 @@ package com.company.platform.team.projpatternreco.stormtopology;
 import com.company.platform.team.projpatternreco.stormtopology.bolts.*;
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.stormtopology.data.RunningType;
+import com.company.platform.team.projpatternreco.stormtopology.utils.Recognizer;
 import com.company.platform.team.projpatternreco.stormtopology.utils.TimerSpout;
 import org.apache.commons.cli.*;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -47,6 +48,28 @@ public final class PatternRecognizeTopology {
 
     public PatternRecognizeTopology() {
         config = PatternRecognizeConfigure.getInstance(confFile, runningType);
+        Recognizer recognizer = Recognizer.getInstance(config.getStormConfig());
+        recognizer.initMetas();
+    }
+    private void start() {
+        TopologyBuilder tb = createTopologyBuilder();
+
+        if (runningType == RunningType.CLUSTER) {
+            logger.info("Starting Pattern Recognize CLUSTER topology");
+            try {
+                StormSubmitter.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
+            } catch (AlreadyAliveException | InvalidTopologyException e) {
+                e.printStackTrace();
+            } catch (AuthorizationException e) {
+                e.printStackTrace();
+            }
+            logger.info("Started Pattern Recognize CLUSTER topology");
+        } else {
+            logger.info("Starting Pattern Recognize LOCAL topology");
+            LocalCluster cluster = new LocalCluster();
+            cluster.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
+            logger.info("Started Pattern Recognize LOCAL topology");
+        }
     }
 
     private TopologyBuilder createTopologyBuilder() {
@@ -126,28 +149,6 @@ public final class PatternRecognizeTopology {
 
         return topologyBuilder;
     }
-
-    private void start() {
-        TopologyBuilder tb = createTopologyBuilder();
-
-        if (runningType == RunningType.CLUSTER) {
-            logger.info("Starting Pattern Recognize CLUSTER topology");
-            try {
-                StormSubmitter.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
-            } catch (AlreadyAliveException | InvalidTopologyException e) {
-                e.printStackTrace();
-            } catch (AuthorizationException e) {
-                e.printStackTrace();
-            }
-            logger.info("Started Pattern Recognize CLUSTER topology");
-        } else {
-            logger.info("Starting Pattern Recognize LOCAL topology");
-            LocalCluster cluster = new LocalCluster();
-            cluster.submitTopology(topologyName, config.getStormConfig(), tb.createTopology());
-            logger.info("Started Pattern Recognize LOCAL topology");
-        }
-    }
-
     private KafkaSpout createKafkaSpout(String topicName) {
         KafkaSpoutConfig.Builder<String, String> kafkaSpoutBuilder = KafkaSpoutConfig
                 .builder(config.getKafkaBrokerHosts(), topicName)

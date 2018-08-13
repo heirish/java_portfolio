@@ -16,6 +16,17 @@ public class DBProjectPatternNode {
     private String pattern;
     private String represent;
 
+    public DBProjectPatternNode() {
+
+    }
+    public DBProjectPatternNode(int projectId, int patternLevel,
+                                String patternKey)
+    {
+       this.projectId = projectId;
+       this.patternLevel =  patternLevel;
+       this.patternKey = patternKey;
+    }
+
     public int getProjectId() {
         return this.projectId;
     }
@@ -52,7 +63,7 @@ public class DBProjectPatternNode {
     }
     public void setPatternTokens(List<String> tokens) {
         if (tokens != null) {
-            this.pattern = String.join(DELIMITER, tokens);
+            this.pattern = String.join("", tokens);
         }
     }
 

@@ -3,6 +3,7 @@ package com.company.platform.team.projpatternreco.stormtopology.bolts;
 import com.company.platform.team.projpatternreco.stormtopology.utils.Aligner;
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
 import com.company.platform.team.projpatternreco.common.data.PatternNodeKey;
+import com.company.platform.team.projpatternreco.stormtopology.utils.CommonUtil;
 import com.company.platform.team.projpatternreco.stormtopology.utils.GsonFactory;
 import edu.emory.mathcs.backport.java.util.Arrays;
 import org.apache.storm.task.OutputCollector;
@@ -34,9 +35,7 @@ public class UnmergedLogReducerBolt implements IRichBolt {
     @Override
     public void prepare(Map map, TopologyContext topologyContext, OutputCollector outputCollector) {
         this.collector = outputCollector;
-        //for test
-        this.replayTuple = false;
-        //this.replayTuple = true;
+        this.replayTuple = CommonUtil.replayFailedTuple(map);
         this.cachedPatterns = new HashMap<>();
         this.cacheStartTime = 0L;
         parseConfig(map);

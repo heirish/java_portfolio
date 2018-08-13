@@ -46,6 +46,15 @@
     "UnmergedLogReducerBolt": 20,
     "PatternRefinerBolt": 8
   },
+  "topology": {
+    "name": "patternreco-storm",
+    "maxParallelism": 1024,
+    "maxSpoutPending": 1000,
+    "sleepSpoutWaitMs": 10,
+    "sampleRate": 0.05,
+    "messageTimeoutSec":1000,
+    "replayFailedTuple": false
+  },
   "patternreco":{
     "leafSimilarityMin": 0.5,
     "leafSimilarityMax": 0.9,

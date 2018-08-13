@@ -30,9 +30,18 @@ public class RedisFlushBolt implements IRichBolt{
         try {
             String projectName= tuple.getString(0);
             Recognizer recognizer = Recognizer.getInstance(configMap);
+            long startTime = System.currentTimeMillis();
             recognizer.flushNodesFromRedisToMysql(projectName);
+            long endTime = System.currentTimeMillis();
+            logger.info("flushNodesToMysql used: " + (endTime - startTime) + " ms.");
+            startTime = System.currentTimeMillis();
             recognizer.relinkProjectLeaves(projectName);
+            endTime = System.currentTimeMillis();
+            logger.info("relinkLeaves used: " + (endTime - startTime) + " ms.");
+            startTime = System.currentTimeMillis();
             recognizer.limitLeafCapacity(projectName);
+            endTime = System.currentTimeMillis();
+            logger.info("limitLeafCapacity used: " + (endTime - startTime) + " ms.");
         } catch (Exception e) {
             collector.reportError(e);
         }

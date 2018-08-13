@@ -1,6 +1,10 @@
 package com.company.platform.team.projpatternreco.stormtopology.data;
 
 import com.company.platform.team.projpatternreco.common.data.*;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventListener;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.IEventType;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.MetaEvent;
+import com.company.platform.team.projpatternreco.stormtopology.eventbus.SimilarityEvent;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by admin on 2018/6/29.
  * Singletone
  */
-public final class PatternNodes {
+public final class PatternNodes  implements IEventListener {
     private static final Logger logger = LoggerFactory.getLogger(PatternNodes.class);
 
     private ConcurrentHashMap<PatternLevelKey, ConcurrentHashMap<PatternNodeKey, PatternNode>> patternNodes;
@@ -144,6 +148,17 @@ public final class PatternNodes {
             }
         }
         return maxLevel;
+    }
+
+
+    @Override
+    public void accept(IEventType event) {
+        if (event instanceof SimilarityEvent) {
+            String projectName = ((SimilarityEvent)event).getProjectName();
+            deleteProjectNodes(projectName);
+        } else {
+            ;
+        }
     }
 
     public String visualize(String name) {

@@ -1,7 +1,8 @@
 package com.company.platform.team.projpatternreco.stormtopology.utils;
 
 import com.company.platform.team.projpatternreco.stormtopology.data.DBProjectPatternNode;
-import com.company.platform.team.projpatternreco.stormtopology.data.DBPatternNodeMapper;
+import com.company.platform.team.projpatternreco.stormtopology.data.DBProject;
+import com.company.platform.team.projpatternreco.stormtopology.data.MysqlMapper;
 import org.apache.ibatis.datasource.pooled.PooledDataSource;
 import org.apache.ibatis.datasource.unpooled.UnpooledDataSource;
 import org.apache.ibatis.mapping.Environment;
@@ -51,54 +52,34 @@ public class MysqlUtil {
         return instance;
     }
 
-    public int getProjectId(String projectName) {
-        int projectId = -1;
-        SqlSession session = sqlSessionFactory.openSession();
-        try {
-            DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
-            projectId = mapper.selectProjectId(projectName);
-        } catch (Exception e) {
-            logger.error("get id for project "+ projectName + " failed.", e);
-        } finally {
-            session.close();
-        }
-        return projectId;
-    }
-
-    public boolean refreshProjectNodes(String projectName, List<DBProjectPatternNode> nodes)
+    public boolean refreshProjectNodes(int projectId, List<DBProjectPatternNode> nodes)
     {
         SqlSession session = sqlSessionFactory.openSession();
         boolean success = false;
-        if (projectName != null && nodes != null) {
+        if (projectId > 0 && nodes != null) {
             try {
-                DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
-                int projectId = mapper.selectProjectId(projectName);
-                if (projectId >= 0) {
-                    mapper.deleteProjectNodes(projectId);
-                    mapper.insertProjectNodes(nodes);
-                    session.commit();
-                    success = true;
-                } else {
-                    logger.error("invalid projectId: " + projectId);
-                }
+                MysqlMapper mapper = session.getMapper(MysqlMapper.class);
+                mapper.deleteProjectNodes(projectId);
+                mapper.insertProjectNodes(nodes);
+                session.commit();
+                success = true;
             } catch (Exception e) {
                 session.rollback();
-                logger.error("refresh nodes for project: " + projectName + " failed.", e);
+                logger.error("refresh nodes for project: " + projectId + " failed.", e);
             } finally {
                 session.close();
             }
         } else {
-            logger.warn("projectName or nodes is null.");
+            logger.warn("invalid project Id or nodes is null.");
         }
         return success;
     }
-
     public int insertNodes(List<DBProjectPatternNode> nodes) {
         SqlSession session = sqlSessionFactory.openSession();
         int successRows = -1;
         if (nodes != null) {
             try {
-                DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+                MysqlMapper mapper = session.getMapper(MysqlMapper.class);
                 successRows = mapper.insertProjectNodes(nodes);
                 session.commit();
             } catch (Exception e) {
@@ -113,12 +94,11 @@ public class MysqlUtil {
         }
         return successRows;
     }
-
     public List<DBProjectPatternNode> getProjectLeaves(String projectName) {
        SqlSession session = sqlSessionFactory.openSession();
        List<DBProjectPatternNode> nodes = null;
        try {
-           DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+           MysqlMapper mapper = session.getMapper(MysqlMapper.class);
            nodes = mapper.selectProjectLeaves(projectName);
        } catch (Exception e) {
            logger.error("get leaves for project: " + projectName + " failed.", e);
@@ -127,12 +107,11 @@ public class MysqlUtil {
        }
        return nodes;
     }
-
     public int updateParentNode(DBProjectPatternNode node) {
         SqlSession session = sqlSessionFactory.openSession();
         int successRows = -1;
         try {
-            DBPatternNodeMapper mapper = session.getMapper(DBPatternNodeMapper.class);
+            MysqlMapper mapper = session.getMapper(MysqlMapper.class);
             successRows = mapper.updateParentNode(node.getProjectId(), node.getPatternLevel(), node.getPatternKey(), node.getParentKey());
             session.commit();
         } catch (Exception e) {
@@ -143,6 +122,32 @@ public class MysqlUtil {
             session.close();
         }
         return successRows;
+    }
+    public List<DBProject> getProjectMetas() {
+        SqlSession session = sqlSessionFactory.openSession();
+        List<DBProject> projects = null;
+        try {
+            MysqlMapper mapper = session.getMapper(MysqlMapper.class);
+            projects = mapper.selectProjectMetas();
+        } catch (Exception e) {
+            logger.error("get projects info failed.", e);
+        } finally {
+            session.close();
+        }
+        return projects;
+    }
+    public DBProject getProjectMeta(String projectName){
+        SqlSession session = sqlSessionFactory.openSession();
+        DBProject project = null;
+        try {
+            MysqlMapper mapper = session.getMapper(MysqlMapper.class);
+            project = mapper.selectProjectMeta(projectName);
+        } catch (Exception e) {
+            logger.error("get info for project " + projectName + " failed.", e);
+        } finally {
+            session.close();
+        }
+        return project;
     }
 
     private Configuration getConfiguration(String url, String userName, String password, boolean pooled) {
@@ -165,7 +170,7 @@ public class MysqlUtil {
                 environment = new Environment("development", transactionFactory, ds);
             }
             Configuration configuration = new Configuration(environment);
-            configuration.addMapper(DBPatternNodeMapper.class);
+            configuration.addMapper(MysqlMapper.class);
             return configuration;
         }
         return null;

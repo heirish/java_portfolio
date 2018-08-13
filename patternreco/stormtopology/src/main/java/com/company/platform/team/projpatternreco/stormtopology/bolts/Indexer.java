@@ -1,6 +1,7 @@
 package com.company.platform.team.projpatternreco.stormtopology.bolts;
 
 import com.company.platform.team.projpatternreco.stormtopology.data.Constants;
+import com.company.platform.team.projpatternreco.stormtopology.utils.CommonUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;

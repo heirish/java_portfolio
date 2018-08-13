@@ -27,7 +27,7 @@ public class PatternMetas {
     private static double SIMILARITY_DECAY_FACTOR_DEFAULT = 0.1;
     private static double LEAF_SIMILARITY_MIN_DEFAULT = 0.5;
     private static double LEAF_SIMILARITY_MAX_DEFAULT = 0.9;
-    private static int FIND_TOLERENCE_DEFAULT = 3;
+    private static int FIND_TOLERENCE_DEFAULT = 2;
     private static int PATTERN_LEVEL_MAX_DEFAULT = 10;
     private static int BODY_LENGTH_MAX_DEFAULT = 5000;
     private static int TOKEN_COUNT_MAX_DEFAULT = 200;
@@ -43,15 +43,12 @@ public class PatternMetas {
 
     private static PatternMetas instance;
 
-    private PatternMetas(Map conf) {
+    private PatternMetas(Map conf, RedisUtil redisUtil) {
         projectMetas = new ConcurrentHashMap<>();
+        this.redisUtil = redisUtil;
 
         if (conf != null) {
-            Map redisConf = (Map) conf.get(Constants.CONFIGURE_REDIS_SECTION);
-            redisUtil = RedisUtil.getInstance(redisConf);
-
-            Map patternrecoConf = (Map) conf.get(Constants.CONFIGURE_PATTERNRECO_SECTION);
-            parseConfiguredGlobalMetas(patternrecoConf);
+            parseConfiguredGlobalMetas(conf);
         } else {
             similarityDecayFactor = SIMILARITY_DECAY_FACTOR_DEFAULT;
             leafSimilarityMin = LEAF_SIMILARITY_MIN_DEFAULT;
@@ -63,9 +60,9 @@ public class PatternMetas {
         }
     }
 
-    public static synchronized PatternMetas getInstance(Map conf) {
+    public static synchronized PatternMetas getInstance(Map conf, RedisUtil redisUtil) {
         if (instance == null) {
-            instance = new PatternMetas(conf);
+            instance = new PatternMetas(conf, redisUtil);
         }
         return instance;
     }
@@ -82,27 +79,42 @@ public class PatternMetas {
     public int getFindTolerence() {
         return findTolerence;
     }
-    public int getLeafCountMax(String projectName) {
+
+    public int getProjectId(String projectName) {
+        int projectId = -1;
+        try {
+            synchronizeMetaFromRedis(projectName, PatternMetaType.PROJECT_ID);
+            String metaKey = getMetaKey(projectName, PatternMetaType.PROJECT_ID);
+            projectId = Integer.parseInt(projectMetas.get(metaKey));
+        } catch (Exception e) {
+            logger.error("get id for project " + projectName + " failed");
+        }
+        return projectId;
+    }
+    public int getProjectLeafCountMax(String projectName) {
         int leafCountMax;
         try {
             synchronizeMetaFromRedis(projectName, PatternMetaType.LEAF_NODES_LIMIT);
             String metaKey = getMetaKey(projectName, PatternMetaType.LEAF_NODES_LIMIT);
             leafCountMax = Integer.parseInt(projectMetas.get(metaKey));
+            if (leafCountMax <= 0) {
+                leafCountMax = LEAF_COUNT_MAX_DEFAULT;
+                logger.info("invalid leafCountMax for project " + projectName + ", use defualt value " + leafCountMax);
+            }
         } catch (Exception e) {
             leafCountMax = LEAF_COUNT_MAX_DEFAULT;
             logger.warn("get leafCountMax for project " + projectName + " failed. use default Value: " + leafCountMax);
         }
         return leafCountMax;
     }
-
-    public double getSimilarity(PatternLevelKey levelKey) {
-        double leafSimilarity = getLeafSimilarity(levelKey.getProjectName());
+    public double getProjectSimilarity(PatternLevelKey levelKey) {
+        double leafSimilarity = getProjectLeafSimilarity(levelKey.getProjectName());
         double similarity =  leafSimilarity * Math.pow(1-similarityDecayFactor, levelKey.getLevel());
         double roundedSimilarity = CommonUtil.round(similarity, Constants.SIMILARITY_PRECISION);
         return roundedSimilarity;
     }
-    public boolean stepUpLeafSimilarity(String projectName) {
-        double oldSimilarity = getLeafSimilarity(projectName);
+    public boolean stepUpProjectLeafSimilarity(String projectName) {
+        double oldSimilarity = getProjectLeafSimilarity(projectName);
         double newSimilarity =  CommonUtil.round((oldSimilarity + leafSimilarityMax) / 2, Constants.SIMILARITY_PRECISION);
         if (CommonUtil.equalWithPrecision(oldSimilarity, newSimilarity, Constants.SIMILARITY_PRECISION)) {
             return false;
@@ -114,8 +126,8 @@ public class PatternMetas {
         publishSimilarityEvent(projectName);
         return true;
     }
-    public boolean stepDownLeafSimilarity(String projectName) {
-        double oldSimilarity = getLeafSimilarity(projectName);
+    public boolean stepDownProjectLeafSimilarity(String projectName) {
+        double oldSimilarity = getProjectLeafSimilarity(projectName);
         double newSimilarity = CommonUtil.round((oldSimilarity + leafSimilarityMin) / 2, Constants.SIMILARITY_PRECISION);
         if (CommonUtil.equalWithPrecision(oldSimilarity, newSimilarity, Constants.SIMILARITY_PRECISION)) {
             return false;
@@ -127,7 +139,7 @@ public class PatternMetas {
         publishSimilarityEvent(projectName);
         return true;
     }
-    private double getLeafSimilarity(String projectName) {
+    private double getProjectLeafSimilarity(String projectName) {
         double leafSimilarity;
         try {
             synchronizeMetaFromRedis(projectName, PatternMetaType.LEAF_SIMILARITY);

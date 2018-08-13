@@ -10,5 +10,6 @@ CONSTRAINT PK_pattern_nodes PRIMARY KEY (project_id, pattern_level, pattern_key)
 
 create table if not exists projects(
 id int(5) not null PRIMARY KEY,
-project_name varchar(32) not null
+project_name varchar(32) not null,
+leaf_max int(5)
 );

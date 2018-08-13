@@ -130,8 +130,6 @@ public class RedisUtil {
         if (result == null  || result.size() == 0) {
             logger.warn("Can not find fields for key: " + redisKey);
             return nodes;
-        } else {
-            logger.info("get " + result.size() + " records from redis for key; " + redisKey);
         }
 
         for (Map.Entry<String, String> entry : result.entrySet()) {
